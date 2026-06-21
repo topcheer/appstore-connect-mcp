@@ -1,6 +1,8 @@
 # App Store Connect MCP
 
-A [Model Context Protocol](https://modelcontextprotocol.io/) server that exposes the entire **Apple App Store Connect API** (1,200+ operations) as MCP tools. Query apps, manage builds, handle submissions, read analytics, manage users, and more — all from your AI assistant.
+A [Model Context Protocol](https://modelcontextprotocol.io/) server that exposes the entire **Apple App Store Connect API** (1,200+ operations) via 4 lightweight MCP tools. Query apps, manage builds, handle submissions, read analytics, manage users, and more — all from your AI assistant.
+
+> **Why only 4 tools?** Registering 1,216 tools would consume ~140K tokens of LLM context, making the server unusable. Instead, the LLM uses `search_apis` → `get_tool_details` → `call_api` to discover and execute any operation on demand — keeping context tiny while maintaining full API coverage.
 
 [![npm version](https://img.shields.io/npm/v/@ggaiteam/appstore-connect-mcp.svg)](https://www.npmjs.com/package/@ggaiteam/appstore-connect-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -9,11 +11,13 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) server that exposes
 ## Features
 
 - **Complete API coverage** — all 1,216 operations from the App Store Connect API v4.4
-- **Tool search** — `search_apis` meta-tool to find the right operation among 1,200+
-- **Two transports** — `stdio` for local use (Claude Desktop, Cursor), `HTTP` for remote deployment
+- **Context-friendly** — only 4 MCP tools registered (not 1,216), protecting LLM context window
+- **Tool discovery workflow** — `search_apis` → `get_tool_details` → `call_api`
+- **Response truncation** — large API responses truncated at 25KB to fit LLM context
+- **Two transports** — `stdio` for local use (ggcode, Claude Desktop, Cursor), `HTTP` for remote deployment
 - **JWT authentication** — automatic ES256 token generation and caching
 - **Docker ready** — multi-stage Dockerfile with health checks
-- **Auto-publish** — GitHub Actions workflow for npm publishing on release
+- **Auto-publish** — push a git tag `v1.x.x` to publish to npm (OIDC, no token needed)
 
 ## Quick Start
 
@@ -50,6 +54,37 @@ docker pull ghcr.io/topcheer/appstore-connect-mcp:latest
 
 ### 3. Configure Your MCP Client
 
+#### ggcode (topcheer/ggcode) — Recommended
+
+Add to `~/.ggcode/ggcode.yaml` under `mcp_servers`:
+
+```yaml
+mcp_servers:
+  - args:
+      - -y
+      - '@ggaiteam/appstore-connect-mcp@latest'
+    command: npx
+    env:
+      APP_STORE_CONNECT_ISSUER_ID: your-issuer-id-here
+      APP_STORE_CONNECT_KEY_ID: your-key-id-here
+      APP_STORE_CONNECT_P8_FILE: /path/to/AuthKey_XXXXXXXXXX.p8
+    name: appstore-connect
+    type: stdio
+```
+
+Restart ggcode. The 4 MCP tools (`search_apis`, `get_tool_details`, `call_api`, `list_categories`) will be available immediately.
+
+**Example session in ggcode:**
+
+```
+> 列出我的 App Store Connect 应用列表
+
+# ggcode will:
+# 1. call_api("apps_getCollection", {arguments: {limit: 50}})
+# 2. For each app, call_api("appStoreVersions_getToManyRelated", ...)
+# 3. Summarize the results
+```
+
 #### Claude Desktop
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
@@ -58,7 +93,8 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "appstore-connect": {
-      "command": "appstore-connect-mcp",
+      "command": "npx",
+      "args": ["-y", "@ggaiteam/appstore-connect-mcp"],
       "env": {
         "APP_STORE_CONNECT_ISSUER_ID": "your-issuer-id",
         "APP_STORE_CONNECT_KEY_ID": "your-key-id",
@@ -78,7 +114,7 @@ Add to your Cursor MCP settings:
   "mcpServers": {
     "appstore-connect": {
       "command": "npx",
-      "args": ["@ggaiteam/appstore-connect-mcp"],
+      "args": ["-y", "@ggaiteam/appstore-connect-mcp"],
       "env": {
         "APP_STORE_CONNECT_ISSUER_ID": "your-issuer-id",
         "APP_STORE_CONNECT_KEY_ID": "your-key-id",
@@ -94,9 +130,9 @@ Add to your Cursor MCP settings:
 > "APP_STORE_CONNECT_PRIVATE_KEY": "-----BEGIN PRIVATE KEY-----\nMIGTAg...\n-----END PRIVATE KEY-----"
 > ```
 
-Restart your client. You should now have access to all App Store Connect API tools.
+Restart your client.
 
-## Usage Examples
+## Usage
 
 Once connected, ask your AI assistant:
 
@@ -108,25 +144,38 @@ Once connected, ask your AI assistant:
 
 > "Search for subscription-related API operations"
 
-The AI uses the `search_apis` meta-tool to discover available operations, then calls them.
+The AI uses `search_apis` → `get_tool_details` → `call_api` to discover and execute operations.
 
-### Meta-Tools
+### 4 MCP Tools
 
 | Tool | Description |
 |------|-------------|
-| `search_apis` | Search API operations by keyword, category, or HTTP method |
-| `list_categories` | List all 192 API resource categories |
-| `get_tool_details` | Get full parameter details for a specific operation |
+| `search_apis` | Search 1,216 API operations by keyword, category, or HTTP method |
+| `get_tool_details` | Get full parameter schema + usage example for one operation |
+| `call_api` | Execute any API operation by name + arguments |
+| `list_categories` | List all 192 API resource categories with operation counts |
 
-### Example Tool Calls
+### How It Works
 
-The AI can call tools like:
-- `apps_getCollection` — list all apps
-- `builds_getCollection` — list builds with filters
-- `appStoreVersions_getCollection` — get app versions
-- `betaTesters_getCollection` — list beta testers
-- `salesReports_getCollection` — download sales reports
-- `userInvitations_createInstance` — invite a new team member
+```
+User: "List my apps"
+  ↓
+AI calls: search_apis("apps")
+  → finds: apps_getCollection (GET /v1/apps)
+  ↓
+AI calls: call_api("apps_getCollection", {arguments: {limit: 10}})
+  → returns: [{name: "MyApp", bundleId: "com.example.myapp"}, ...]
+```
+
+### Common Operations
+
+| What | Operation |
+|------|----------|
+| List apps | `call_api("apps_getCollection", {})` |
+| List builds | `call_api("builds_getCollection", {arguments: {"filter[preReleaseVersion.build.app]": "app-id"}})` |
+| App versions | `call_api("appStoreVersions_getCollection", {arguments: {"filter[app]": "app-id"}})` |
+| Beta testers | `call_api("betaTesters_getCollection", {})` |
+| Sales reports | `call_api("salesReports_getCollection", {arguments: {"filter[frequency]": "DAILY"}})` |
 
 ## Remote Deployment (HTTP Mode)
 
@@ -233,9 +282,9 @@ appstore-connect-mcp --verbose
 ```
 
 - **Tool data** is generated from Apple's OpenAPI spec (`scripts/generate-tools.py`)
-- **Runtime** loads `tools.json` and registers all tools dynamically
+- **Runtime** loads `tools.json` (1,216 ops) but only registers 4 MCP tools
 - **JWT tokens** are cached and auto-refreshed (20-minute TTL)
-- **Responses** are truncated at 50KB to fit LLM context windows
+- **Responses** are truncated at 25KB to fit LLM context windows
 
 ### Regenerating Tools
 
@@ -283,7 +332,7 @@ npm start
 │   └── install.sh            # One-line installer
 ├── src/
 │   ├── index.ts              # Entry point + CLI
-│   ├── server.ts             # MCP server (tool registry + dispatch)
+│   ├── server.ts             # MCP server (4 tools: search/details/call/list)
 │   ├── transport.ts          # stdio + HTTP transports
 │   ├── auth.ts               # JWT (ES256) token generation
 │   ├── client.ts             # App Store Connect API client
@@ -301,27 +350,27 @@ npm start
 
 ## npm Publishing
 
-Publishing is automated via GitHub Actions:
+Publishing is fully automated via GitHub Actions with OIDC trusted publishing — **no NPM_TOKEN needed**.
 
-1. **Create a release** on GitHub (tag format: `v1.0.0`)
-2. The `npm-publish.yml` workflow automatically:
-   - Builds the package
-   - Publishes to npm
-   - With [provenance](https://docs.npmjs.com/generating-provenance-statements)
-
-### First-time Setup
-
-1. Create an npm access token: https://www.npmjs.com/settings/~/tokens
-2. Add it as a repository secret: `NPM_TOKEN`
-3. Create a GitHub release — done!
-
-### Manual Publishing
+### Release a new version
 
 ```bash
-npm version patch  # or minor/major
-npm run build
-npm publish
+git tag v1.0.3
+git push origin v1.0.3
 ```
+
+That's it. The workflow will:
+1. Extract version from the tag
+2. Check if version already exists on npm (skip if so)
+3. Build the package
+4. Publish to npm with `--provenance=false --access public`
+5. Auto-create a GitHub Release
+
+### First-time setup (already done)
+
+1. Package must exist on npm (first publish is manual: `npm publish --access public`)
+2. Configure trusted publishing on npm: link the package to `topcheer/appstore-connect-mcp`
+3. No NPM_TOKEN secret needed — OIDC handles authentication
 
 ## API Coverage
 
