@@ -1,14 +1,12 @@
 # ─────────────────────────────────────────────────────────────────
-# npm-publish — Auto-publish to npm on GitHub Release
+# npm-publish — Auto-publish to npm via GitHub OIDC (Trusted Publishing)
 #
-# This workflow triggers when a new GitHub Release is published.
-# It builds the package and publishes to npm using NPM_TOKEN.
+# Uses npm provenance with GitHub Actions OIDC — no NPM_TOKEN needed.
+# The package is linked to the GitHub repo in npm's trusted publishing settings.
 #
-# Setup:
-#   1. Create an npm access token (automation type):
-#      https://www.npmjs.com/settings/~/tokens
-#   2. Add it as a repository secret named NPM_TOKEN:
-#      Settings → Secrets and variables → Actions → New secret
+# Triggers:
+#   - GitHub Release published → auto-publish
+#   - Manual dispatch (Actions tab → Run workflow)
 # ─────────────────────────────────────────────────────────────────
 name: Publish to npm
 
@@ -16,7 +14,6 @@ on:
   release:
     types: [published]
 
-  # Allow manual trigger for testing
   workflow_dispatch:
     inputs:
       version:
@@ -29,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write  # for npm provenance
+      id-token: write  # Required for OIDC + provenance
     steps:
       - uses: actions/checkout@v4
 
@@ -57,10 +54,8 @@ jobs:
           test -f dist/tools.json
           echo "Tools: $(node -p 'require("./dist/tools.json").stats.total')"
 
-      - name: Publish to npm
+      - name: Publish to npm (OIDC Trusted Publishing)
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Summary
         run: |
