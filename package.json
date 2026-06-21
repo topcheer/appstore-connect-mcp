@@ -1,6 +1,6 @@
 {
   "name": "@ggaiteam/appstore-connect-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server for the Apple App Store Connect API — exposes all 1200+ operations as MCP tools. Supports local (stdio) and remote (HTTP) deployment.",
   "license": "MIT",
   "author": "appstore-connect-mcp contributors",
