@@ -54,8 +54,7 @@
     "zod": "^3.24.1"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
