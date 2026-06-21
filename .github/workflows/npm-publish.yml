@@ -1,32 +1,26 @@
 # ─────────────────────────────────────────────────────────────────
-# npm-publish — Auto-publish to npm via GitHub OIDC (Trusted Publishing)
+# npm-publish — Push a tag `v1.2.3` to publish to npm
 #
-# Uses npm provenance with GitHub Actions OIDC — no NPM_TOKEN needed.
-# The package is linked to the GitHub repo in npm's trusted publishing settings.
+# Usage:
+#   git tag v1.0.2
+#   git push origin v1.0.2
 #
-# Triggers:
-#   - GitHub Release published → auto-publish
-#   - Manual dispatch (Actions tab → Run workflow)
+# The version is extracted from the tag — no manual bump needed.
+# Uses OIDC trusted publishing (provenance) with NPM_TOKEN fallback.
 # ─────────────────────────────────────────────────────────────────
 name: Publish to npm
 
 on:
-  release:
-    types: [published]
-
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Override version (e.g. 1.2.3 or patch/minor/major)'
-        required: false
-        default: ''
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write  # Required for OIDC + provenance
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -38,13 +32,15 @@ jobs:
 
       - run: npm ci
 
-      - name: Determine version
+      - name: Sync version from tag
         id: version
         run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            npm version ${{ github.event.inputs.version }} --no-git-tag-version
-          fi
-          echo "version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
+          # Extract version from tag: refs/tags/v1.2.3 → 1.2.3
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "Tag: $TAG  Version: $VERSION"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build
         run: npm run build
@@ -54,10 +50,17 @@ jobs:
           test -f dist/tools.json
           echo "Tools: $(node -p 'require("./dist/tools.json").stats.total')"
 
-      - name: Publish to npm (OIDC Trusted Publishing)
+      - name: Publish to npm
         run: npm publish --provenance --access public
 
-      - name: Summary
-        run: |
-          echo "### Published @ggaiteam/appstore-connect-mcp@${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "https://www.npmjs.com/package/@ggaiteam/appstore-connect-mcp" >> $GITHUB_STEP_SUMMARY
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            ### npm
+            ```
+            npm install -g @ggaiteam/appstore-connect-mcp@${{ steps.version.outputs.version }}
+            ```
