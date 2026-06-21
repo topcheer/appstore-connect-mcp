@@ -6,7 +6,7 @@
 #   git push origin v1.0.2
 #
 # Version is extracted from the tag. GitHub Release is auto-created.
-# Requires NPM_TOKEN secret (one-time setup).
+# Uses OIDC trusted publishing — no token needed.
 # ─────────────────────────────────────────────────────────────────
 name: Publish to npm
 
@@ -19,8 +19,8 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # for auto-creating GitHub Release
-      id-token: write   # for npm provenance
+      contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -51,8 +51,6 @@ jobs:
 
       - name: Publish to npm
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
