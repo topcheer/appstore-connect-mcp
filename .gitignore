@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.js
+*.d.ts
+*.js.map
+*.d.ts.map
+!.github/**/*.yml
+.env
+.env.local
+__MACOSX/
+*.zip
+npm-debug.log*
+.DS_Store
+.ggcode/
+openapi.oas.json
+*.zip

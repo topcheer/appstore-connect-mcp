@@ -1,0 +1,38 @@
+# ─────────────────────────────────────────────────────────────────
+# CI — lint, typecheck, and build on every push/PR
+# ─────────────────────────────────────────────────────────────────
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          test -f dist/index.js
+          test -f dist/tools.json
+          node -e "const d=require('./dist/tools.json'); if(d.stats.total < 1000) throw new Error('Expected 1000+ tools, got '+d.stats.total); console.log('OK: '+d.stats.total+' tools')"
+
+      - name: Docker build test
+        run: docker build -t appstore-connect-mcp:ci .

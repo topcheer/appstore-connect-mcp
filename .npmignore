@@ -1,0 +1,10 @@
+node_modules/
+*.zip
+__MACOSX/
+.env
+.env.local
+scripts/
+openapi.oas.json
+src/
+.github/
+.DS_Store

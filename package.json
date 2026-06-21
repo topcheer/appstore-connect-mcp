@@ -1,0 +1,62 @@
+{
+  "name": "appstore-connect-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for the Apple App Store Connect API — exposes all 1200+ operations as MCP tools. Supports local (stdio) and remote (HTTP) deployment.",
+  "license": "MIT",
+  "author": "appstore-connect-mcp contributors",
+  "homepage": "https://github.com/topcheer/appstore-connect-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/topcheer/appstore-connect-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/topcheer/appstore-connect-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "apple",
+    "app-store-connect",
+    "appstore",
+    "api",
+    "claude",
+    "ai",
+    "llm"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "appstore-connect-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc && node -e \"require('node:fs').copyFileSync('src/tools.json','dist/tools.json')\"",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "start:http": "node dist/index.js --transport http",
+    "start:stdio": "node dist/index.js --transport stdio",
+    "generate": "python3 scripts/generate-tools.py",
+    "prepublishOnly": "npm run build",
+    "lint": "eslint src/ --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

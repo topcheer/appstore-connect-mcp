@@ -1,0 +1,11 @@
+.dockerignore
+node_modules
+dist
+*.zip
+__MACOSX
+.git
+.env
+*.log
+.DS_Store
+openapi.oas.json
+scripts

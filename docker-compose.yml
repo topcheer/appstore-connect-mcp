@@ -1,0 +1,36 @@
+# ─────────────────────────────────────────────────────────────────
+# docker-compose.yml — Remote deployment for appstore-connect-mcp
+#
+# Usage:
+#   docker compose up -d
+#
+# Configure credentials via .env file or environment variables below.
+# ─────────────────────────────────────────────────────────────────
+
+services:
+  appstore-connect-mcp:
+    build: .
+    image: appstore-connect-mcp:latest
+    container_name: appstore-connect-mcp
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Required: App Store Connect API credentials
+      APP_STORE_CONNECT_ISSUER_ID: ${APP_STORE_CONNECT_ISSUER_ID}
+      APP_STORE_CONNECT_KEY_ID: ${APP_STORE_CONNECT_KEY_ID}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${APP_STORE_CONNECT_PRIVATE_KEY}
+
+      # Transport configuration
+      MCP_TRANSPORT: http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "3000"
+
+      # Optional: verbose logging
+      MCP_VERBOSE: ${MCP_VERBOSE:-0}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
