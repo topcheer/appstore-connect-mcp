@@ -5,8 +5,8 @@
 #   git tag v1.0.2
 #   git push origin v1.0.2
 #
-# The version is extracted from the tag — no manual bump needed.
-# Uses OIDC trusted publishing (provenance) with NPM_TOKEN fallback.
+# Version is extracted from the tag. GitHub Release is auto-created.
+# Requires NPM_TOKEN secret (one-time setup).
 # ─────────────────────────────────────────────────────────────────
 name: Publish to npm
 
@@ -19,8 +19,8 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      id-token: write
+      contents: write   # for auto-creating GitHub Release
+      id-token: write   # for npm provenance
     steps:
       - uses: actions/checkout@v4
 
@@ -35,7 +35,6 @@ jobs:
       - name: Sync version from tag
         id: version
         run: |
-          # Extract version from tag: refs/tags/v1.2.3 → 1.2.3
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
           echo "Tag: $TAG  Version: $VERSION"
@@ -52,6 +51,8 @@ jobs:
 
       - name: Publish to npm
         run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
