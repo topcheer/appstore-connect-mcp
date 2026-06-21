@@ -2,7 +2,7 @@
 
 A [Model Context Protocol](https://modelcontextprotocol.io/) server that exposes the entire **Apple App Store Connect API** (1,200+ operations) as MCP tools. Query apps, manage builds, handle submissions, read analytics, manage users, and more — all from your AI assistant.
 
-[![npm version](https://img.shields.io/npm/v/appstore-connect-mcp.svg)](https://www.npmjs.com/package/appstore-connect-mcp)
+[![npm version](https://img.shields.io/npm/v/@ggaiteam/appstore-connect-mcp.svg)](https://www.npmjs.com/package/@ggaiteam/appstore-connect-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org/)
 
@@ -33,7 +33,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) server that exposes
 #### Option A: npm (recommended)
 
 ```bash
-npm install -g appstore-connect-mcp
+npm install -g @ggaiteam/appstore-connect-mcp
 ```
 
 #### Option B: One-line installer
@@ -78,7 +78,7 @@ Add to your Cursor MCP settings:
   "mcpServers": {
     "appstore-connect": {
       "command": "npx",
-      "args": ["appstore-connect-mcp"],
+      "args": ["@ggaiteam/appstore-connect-mcp"],
       "env": {
         "APP_STORE_CONNECT_ISSUER_ID": "your-issuer-id",
         "APP_STORE_CONNECT_KEY_ID": "your-key-id",

@@ -64,5 +64,5 @@ jobs:
 
       - name: Summary
         run: |
-          echo "### Published appstore-connect-mcp@${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "https://www.npmjs.com/package/appstore-connect-mcp" >> $GITHUB_STEP_SUMMARY
+          echo "### Published @ggaiteam/appstore-connect-mcp@${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "https://www.npmjs.com/package/@ggaiteam/appstore-connect-mcp" >> $GITHUB_STEP_SUMMARY

@@ -14,3 +14,8 @@ npm-debug.log*
 .ggcode/
 openapi.oas.json
 *.zip
+*.p8
+AuthKey_*.p8
+secrets/
+*.key
+*.pem

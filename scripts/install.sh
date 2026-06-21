@@ -47,7 +47,7 @@ info "Node.js $(node -v) detected"
 # ── Install the package ──────────────────────────────────────────
 echo ""
 echo "Installing appstore-connect-mcp globally..."
-if npm install -g appstore-connect-mcp 2>/dev/null; then
+if npm install -g @ggaiteam/appstore-connect-mcp 2>/dev/null; then
   info "Installed via npm registry"
 else
   warn "npm registry install failed, building from source..."
