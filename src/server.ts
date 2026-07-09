@@ -17,6 +17,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { ASCCredentials, ToolDef } from "./types.js";
 import { loadTools, buildInputSchema, executeTool } from "./tools.js";
+import { SERVER_VERSION } from "./version.js";
 
 export interface CreateServerOptions {
   credentials: ASCCredentials;
@@ -33,7 +34,7 @@ export function createMcpServer(opts: CreateServerOptions): Server {
   }
 
   const server = new Server(
-    { name: "appstore-connect-mcp", version: "1.0.0" },
+    { name: "appstore-connect-mcp", version: SERVER_VERSION },
     { capabilities: { tools: {} } }
   );
 

@@ -9,6 +9,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import express from "express";
 import { randomUUID } from "node:crypto";
 import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { SERVER_VERSION } from "./version.js";
 
 /** Start the server with stdio transport (for local use). */
 export async function startStdio(server: Server): Promise<void> {
@@ -43,7 +44,7 @@ export async function startHttp(
 
   // Health check
   app.get("/health", (_req, res) => {
-    res.json({ status: "ok", server: "appstore-connect-mcp", version: "1.0.0" });
+    res.json({ status: "ok", server: "appstore-connect-mcp", version: SERVER_VERSION });
   });
 
   // Session storage — each session has its own server + transport
