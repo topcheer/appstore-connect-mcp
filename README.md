@@ -18,7 +18,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) server that exposes
 - **Two transports** — `stdio` for local use (ggcode, Claude Desktop, Cursor), `HTTP` for remote deployment
 - **JWT authentication** — automatic ES256 token generation and caching
 - **Docker ready** — multi-stage Dockerfile with health checks (TypeScript and Rust images)
-- **Rust port** — feature-parallel implementation in [`rust/`](rust/README.md) sharing the same generated catalog: single 6.6MB binary, no runtime deps
+- **Rust port** — feature-parallel implementation in [`rust/`](https://github.com/topcheer/appstore-connect-mcp/blob/main/rust/README.md) sharing the same generated catalog: single 6.6MB binary, no runtime deps
 - **Auto-publish** — push a git tag `v1.x.x` to publish to npm (OIDC, no token needed)
 
 ## Quick Start
@@ -311,7 +311,7 @@ appstore-connect-mcp --verbose
 
 ### Two Implementations
 
-| | TypeScript (`src/`) | Rust ([`rust/`](rust/README.md)) |
+| | TypeScript (`src/`) | Rust ([`rust/`](https://github.com/topcheer/appstore-connect-mcp/blob/main/rust/README.md)) |
 |---|---------------------|----------------------------------|
 | Runtime | Node >= 18, npm package | Single static binary |
 | MCP layer | `@modelcontextprotocol/sdk` | Protocol implemented directly (JSON-RPC 2.0) |
