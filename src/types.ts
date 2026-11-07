@@ -25,6 +25,35 @@ export interface ToolDef {
   pathParams: ToolParam[];
   queryParams: ToolParam[];
   hasBody: boolean | object;
+  /** Key into ToolsData.bodySchemas for the resolved JSON:API request body schema. */
+  bodySchemaRef?: string;
+  /** Compact shape of the success response: where the payload lives. */
+  responseSchema?: ResponseSchemaInfo;
+}
+
+/** Shape of a success response body. */
+export interface ResponseSchemaInfo {
+  kind: "single" | "collection" | "reference";
+  data?: { resourceRef?: string; resourceType?: string | null };
+  /** Resource types that may appear in JSON:API "included" (compound documents). */
+  included?: string[];
+}
+
+/** Resolved JSON:API request body schema (from tools.json bodySchemas). */
+export interface BodySchema {
+  data: {
+    type?: { enum?: string[] };
+    attributes?: { properties?: Record<string, unknown>; required?: string[] };
+    relationships?: { properties?: Record<string, unknown>; required?: string[] };
+    required?: string[];
+  };
+}
+
+/** Resolved resource schema (from tools.json resourceSchemas). */
+export interface ResourceSchema {
+  resourceType?: string | null;
+  attributes?: { properties?: Record<string, unknown>; required?: string[] };
+  relationships?: { properties?: Record<string, unknown> };
 }
 
 /** The overall tools.json structure. */
@@ -34,6 +63,10 @@ export interface ToolsData {
   baseUrl: string;
   stats: { total: number; by_method: Record<string, number> };
   categories: string[];
+  /** Deduped request body schemas, keyed by Apple spec schema name. */
+  bodySchemas?: Record<string, BodySchema>;
+  /** Deduped resource schemas (response payloads), keyed by resource schema name. */
+  resourceSchemas?: Record<string, ResourceSchema>;
   tools: ToolDef[];
 }
 

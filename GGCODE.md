@@ -28,7 +28,7 @@ src/
 ├── auth.ts        # ES256 JWT generation + 20-min in-memory token cache
 ├── transport.ts   # StdioServerTransport (local) + StreamableHTTPServerTransport (remote)
 ├── types.ts       # Shared interfaces (ToolDef, ToolsData, ASCCredentials, ServerConfig)
-└── tools.json     # GENERATED — 1,216 operations derived from Apple's OpenAPI spec
+└── tools.json     # GENERATED — 1,216 operations + deduped bodySchemas/resourceSchemas from Apple's spec
 ```
 
 ### Data flow (data-driven design)
@@ -46,6 +46,8 @@ src/
 - **HTTP transport**: each session needs its own `Server` instance (SDK `Server` supports only one transport). `index.ts` passes a `createServer` factory; `transport.ts` stores sessions in a `Map` keyed by `mcp-session-id`. Endpoints: `POST /mcp` (initialize + requests), `GET /mcp` (SSE stream), `DELETE /mcp` (terminate), `GET /health`.
 - **HTTP client gotcha**: MCP clients connecting to `/mcp` must send `Accept: application/json, text/event-stream` — the SDK's `StreamableHTTPServerTransport` rejects requests without it. This is a consumer requirement, not something our code enforces.
 - **Response truncation**: `call_api` results are capped at 25KB to protect LLM context (`MAX = 25000` in `server.ts`).
+- **Request/response schemas**: `tools.json` carries `bodySchemas` (deduped by Apple spec schema name) and `resourceSchemas` (deduped resource payloads). `get_tool_details` joins `bodySchemaRef` / `responseSchema.resourceRef` against these maps so the LLM gets the exact JSON:API body structure (attributes, relationships with target resource types) and the response shape (`data[]` fields, `included` types). The generator resolves `$ref`s (JSON:API-aware extractor in `generate-tools.py`); props/params are capped at 40 properties / 40 enum values, param descriptions at 500 chars, and the payload is emitted as compact JSON.
+- **`_body` examples are schema-derived**: `buildExample()` in `server.ts` generates realistic examples from the resolved body schema (real `data.type`, attribute names, relationship targets) instead of a generic `{type: "resourceType"}` stub.
 - **JSON:API convention**: POST/PATCH bodies go under the `_body` key in tool arguments; path params are top-level keys; query params (including bracketed ones like `filter[app]`) are top-level keys.
 
 ## Build & validation commands

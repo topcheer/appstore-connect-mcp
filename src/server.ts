@@ -1,5 +1,5 @@
 /**
- * server.ts — MCP server core.
+ * server.ts - MCP server core.
  *
  * Exposes 4 MCP tools instead of 1200+ to keep LLM context small:
  *   - search_apis      → find the right operation by keyword
@@ -15,7 +15,7 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { ASCCredentials, ToolDef } from "./types.js";
+import type { ASCCredentials, ToolDef, ToolsData } from "./types.js";
 import { loadTools, buildInputSchema, executeTool } from "./tools.js";
 import { SERVER_VERSION } from "./version.js";
 
@@ -108,7 +108,9 @@ export function createMcpServer(opts: CreateServerOptions): Server {
                   "Arguments for the operation. " +
                   "Path params: e.g. {\"id\": \"123456\"}. " +
                   "Query params: e.g. {\"filter[name]\": \"MyApp\", \"limit\": 10}. " +
-                  "For POST/PATCH: include \"_body\" with the JSON:API request body.",
+                  "For POST/PATCH: include \"_body\" with the JSON:API request body - " +
+                  "call get_tool_details first for the exact body schema " +
+                  "(attributes, relationships and response field names).",
                 additionalProperties: true,
               },
             },
@@ -188,6 +190,18 @@ export function createMcpServer(opts: CreateServerOptions): Server {
         };
       }
       // Return tool def + computed input schema so LLM knows what to pass
+      const bodySchema = tool.bodySchemaRef
+        ? toolsData.bodySchemas?.[tool.bodySchemaRef]
+        : undefined;
+      const resource = tool.responseSchema?.data?.resourceRef
+        ? toolsData.resourceSchemas?.[tool.responseSchema.data.resourceRef]
+        : undefined;
+      const responseSchema = tool.responseSchema
+        ? {
+            ...tool.responseSchema,
+            ...(resource ? { resource } : {}),
+          }
+        : undefined;
       return {
         content: [
           {
@@ -199,20 +213,27 @@ export function createMcpServer(opts: CreateServerOptions): Server {
                 method: tool.method,
                 path: tool.path,
                 category: tool.category,
-                pathParams: tool.pathParams,
+                pathParams: tool.pathParams.map((p) => ({
+                  name: p.name,
+                  required: p.required,
+                  description: truncate(p.description),
+                  schema: p.schema,
+                })),
                 queryParams: tool.queryParams.map((p) => ({
                   name: p.name,
                   required: p.required,
-                  description: p.description,
+                  description: truncate(p.description),
                   type: p.schema.type,
-                  ...(p.schema.items?.enum ? { enum: p.schema.items.enum } : {}),
-                  ...(p.schema.enum ? { enum: p.schema.enum } : {}),
+                  ...(p.schema.items?.enum ? { enum: capEnum(p.schema.items.enum) } : {}),
+                  ...(p.schema.enum ? { enum: capEnum(p.schema.enum) } : {}),
                 })),
                 hasBody: tool.hasBody,
-                example: buildExample(tool),
-              },
-              null,
-              2
+                ...(bodySchema ? { bodySchema } : {}),
+                ...(responseSchema ? { responseSchema } : {}),
+                example: buildExample(tool, toolsData),
+              }
+              // Compact JSON: this payload is consumed by an LLM, pretty-printing
+              // would nearly double its size for large operations.
             ),
           },
         ],
@@ -297,7 +318,22 @@ export function createMcpServer(opts: CreateServerOptions): Server {
 }
 
 /** Build a usage example for a tool to help the LLM call it correctly. */
-function buildExample(tool: ToolDef): object {
+const MAX_DESCRIPTION = 500;
+const MAX_ENUM = 40;
+
+/** Cap long spec descriptions (some field docs run >1KB and poison LLM context). */
+function truncate(text: string, max = MAX_DESCRIPTION): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max) + "...";
+}
+
+/** Cap long enum lists (fields[...] enums enumerate whole resource schemas). */
+function capEnum(values: string[]): string[] {
+  if (values.length <= MAX_ENUM) return values;
+  return [...values.slice(0, MAX_ENUM), `... (+${values.length - MAX_ENUM} more)`];
+}
+
+function buildExample(tool: ToolDef, toolsData: ToolsData): object {
   const example: Record<string, unknown> = {};
   for (const p of tool.pathParams) {
     example[p.name] = p.name === "id" ? "1234567890" : `<${p.name}>`;
@@ -307,9 +343,81 @@ function buildExample(tool: ToolDef): object {
     example[first.name] = first.schema.type === "array" ? ["value1"] : "value";
   }
   if (tool.hasBody) {
-    example["_body"] = {
-      data: { type: "resourceType", attributes: {} },
-    };
+    example["_body"] = bodyExample(tool, toolsData);
   }
   return example;
+}
+
+/**
+ * Build a realistic _body example from the resolved body schema, so the LLM
+ * sees the exact data.type, attribute names and relationship targets.
+ */
+function bodyExample(tool: ToolDef, toolsData: ToolsData): object {
+  const bs = tool.bodySchemaRef
+    ? toolsData.bodySchemas?.[tool.bodySchemaRef]
+    : undefined;
+  const dataDef = bs?.data;
+  if (!dataDef) {
+    return { data: { type: "resourceType", attributes: {} } };
+  }
+  const data: Record<string, unknown> = {
+    type: dataDef.type?.enum?.[0] ?? "<resourceType>",
+  };
+  const attrs = dataDef.attributes?.properties;
+  if (attrs) {
+    const attributes: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(attrs)) {
+      attributes[k] = placeholder(v);
+    }
+    data.attributes = attributes;
+  }
+  const rels = dataDef.relationships?.properties;
+  if (rels) {
+    const relationships: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(rels)) {
+      const target =
+        (v as { data?: { type?: { enum?: string[] } } })?.data?.type?.enum?.[0] ??
+        "<resourceType>";
+      relationships[k] =
+        (v as { kind?: string })?.kind === "toMany"
+          ? { data: [{ type: target, id: "<related-id>" }] }
+          : { data: { type: target, id: "<related-id>" } };
+    }
+    data.relationships = relationships;
+  }
+  return { data };
+}
+
+/** Produce a plausible placeholder value for a compact schema node. */
+function placeholder(v: unknown): unknown {
+  if (!v || typeof v !== "object") return "value";
+  const node = v as {
+    type?: string;
+    enum?: unknown[];
+    nullable?: boolean;
+    items?: unknown;
+    properties?: Record<string, unknown>;
+  };
+  if (node.enum && node.enum.length > 0) return node.enum[0];
+  if (node.nullable) return null;
+  switch (node.type) {
+    case "boolean":
+      return true;
+    case "integer":
+    case "number":
+      return 1;
+    case "array":
+      return [placeholder(node.items)];
+    case "object":
+      if (node.properties) {
+        const obj: Record<string, unknown> = {};
+        for (const [k, sv] of Object.entries(node.properties)) {
+          obj[k] = placeholder(sv);
+        }
+        return obj;
+      }
+      return {};
+    default:
+      return "string";
+  }
 }

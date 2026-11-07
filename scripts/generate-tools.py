@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate-tools.py — App Store Connect OpenAPI → MCP tools.json
+generate-tools.py - App Store Connect OpenAPI → MCP tools.json
 
 Reads the official App Store Connect OpenAPI specification and produces
 a compact tools.json consumed by the MCP server at runtime.
@@ -91,6 +91,230 @@ def simplify_schema(schema: dict) -> dict:
     return {"type": t}
 
 
+REF_PREFIX = "#/components/schemas/"
+MAX_PROPS = 40
+MAX_ENUM = 40
+
+
+def _ref_name(ref):
+    if isinstance(ref, str) and ref.startswith(REF_PREFIX):
+        return ref.split("/")[-1]
+    return None
+
+
+def _deref(schema, schemas):
+    """Resolve one $ref level. Returns (schema_name_or_None, resolved_schema)."""
+    if isinstance(schema, dict) and "$ref" in schema:
+        name = _ref_name(schema["$ref"])
+        if name:
+            return name, schemas.get(name, {})
+    if isinstance(schema, dict):
+        return None, schema
+    return None, {}
+
+
+def compact_type(schema, schemas, depth=2):
+    """Compact a property schema: type + nullable + enum (+ items / nested properties).
+
+    $refs are resolved; enums survive; nested objects recurse up to `depth` levels.
+    """
+    if not isinstance(schema, dict):
+        return {"type": "string"}
+    if "$ref" in schema:
+        _, resolved = _deref(schema, schemas)
+        return compact_type(resolved, schemas, depth)
+    t = schema.get("type", "string")
+    out = {"type": t}
+    if schema.get("nullable"):
+        out["nullable"] = True
+    if "enum" in schema:
+        vals = schema["enum"]
+        if len(vals) > MAX_ENUM:
+            out["enum"] = vals[:MAX_ENUM] + ["..."]
+        else:
+            out["enum"] = vals
+    if t == "array" and isinstance(schema.get("items"), dict):
+        out["items"] = compact_type(schema["items"], schemas, max(depth - 1, 0))
+    if t == "object" and depth > 0 and isinstance(schema.get("properties"), dict):
+        props = schema["properties"]
+        names = list(props.keys())
+        if len(names) > MAX_PROPS:
+            out["note"] = "properties truncated at %d" % MAX_PROPS
+            names = names[:MAX_PROPS]
+        out["properties"] = {
+            k: compact_type(props[k], schemas, depth - 1) for k in names
+        }
+        if schema.get("required"):
+            out["required"] = schema["required"]
+    return out
+
+
+def _rel_data_summary(data_schema, schemas):
+    """Summarize a relationship's data node: kind + target resource type + required keys."""
+    if not isinstance(data_schema, dict):
+        return {}
+    if data_schema.get("type") == "array":
+        _, item = _deref(data_schema.get("items", {}), schemas)
+        target = (item.get("properties", {}).get("type", {}) or {}).get("enum")
+        return {
+            "kind": "toMany",
+            "data": {
+                "type": ({"enum": target} if target else {"type": "string"}),
+                "id": {"type": "string"},
+                "required": item.get("required", ["type", "id"]),
+            },
+        }
+    _, data = _deref(data_schema, schemas)
+    target = (data.get("properties", {}).get("type", {}) or {}).get("enum")
+    return {
+        "kind": "toOne",
+        "data": {
+            "type": ({"enum": target} if target else {"type": "string"}),
+            "id": {"type": "string"},
+            "required": data.get("required", ["type", "id"]),
+        },
+    }
+
+
+def body_summary(schema, schemas):
+    """Build a compact LLM-friendly body schema from a JSON:API Create/Update request ref.
+
+    Returns (schema_name, summary) - summary mirrors the actual JSON:API payload:
+    { data: { type: {enum}, attributes: {...}, relationships: {...}, required: [...] } }
+    """
+    name, root = _deref(schema, schemas)
+    if not name or not root:
+        return name, None
+    _, data = _deref(root.get("properties", {}).get("data", {}), schemas)
+    props = data.get("properties", {})
+    data_out = OrderedDict()
+    type_s = props.get("type", {})
+    data_out["type"] = (
+        {"enum": type_s["enum"]} if "enum" in type_s else {"type": "string"}
+    )
+    attrs = props.get("attributes", {})
+    if isinstance(attrs.get("properties"), dict):
+        node = {
+            "type": "object",
+            "properties": {
+                k: compact_type(v, schemas, 2) for k, v in attrs["properties"].items()
+            },
+        }
+        if attrs.get("required"):
+            node["required"] = attrs["required"]
+        data_out["attributes"] = node
+    rels = props.get("relationships", {})
+    if isinstance(rels.get("properties"), dict):
+        node = {
+            "type": "object",
+            "properties": {
+                k: _rel_data_summary(v.get("properties", {}).get("data", {}), schemas)
+                for k, v in rels["properties"].items()
+            },
+        }
+        if rels.get("required"):
+            node["required"] = rels["required"]
+        data_out["relationships"] = node
+    if data.get("required"):
+        data_out["required"] = data["required"]
+    return name, {"data": data_out}
+
+
+def resource_summary(res_name, schemas):
+    """Summarize a JSON:API resource schema: resourceType + attributes + relationships."""
+    res = schemas.get(res_name, {})
+    props = res.get("properties", {})
+    if not props:
+        return None
+    t = props.get("type", {}).get("enum")
+    out = OrderedDict()
+    out["resourceType"] = t[0] if t else None
+    attrs = props.get("attributes", {})
+    if isinstance(attrs.get("properties"), dict):
+        node = {
+            "type": "object",
+            "properties": {
+                k: compact_type(v, schemas, 2) for k, v in attrs["properties"].items()
+            },
+        }
+        if attrs.get("required"):
+            node["required"] = attrs["required"]
+        out["attributes"] = node
+    rels = props.get("relationships", {})
+    entries = {}
+    if isinstance(rels.get("properties"), dict):
+        entries = {
+            k: _rel_data_summary(v.get("properties", {}).get("data", {}), schemas)
+            for k, v in rels["properties"].items()
+        }
+    out["relationships"] = {"type": "object", "properties": entries}
+    return out
+
+
+def response_summary(schema, schemas):
+    """Compact description of a success response body (kind + where the payload lives)."""
+    _, root = _deref(schema, schemas)
+    if not root:
+        return None
+    props = root.get("properties", {})
+    data_s = props.get("data", {})
+    out = OrderedDict()
+    if data_s.get("type") == "array":
+        rname, _ = _deref(data_s.get("items", {}), schemas)
+        out["kind"] = "collection"
+        out["data"] = {"resourceRef": rname} if rname else {}
+    elif isinstance(data_s, dict) and "$ref" in data_s:
+        rname, _ = _deref(data_s, schemas)
+        out["kind"] = "single"
+        out["data"] = {"resourceRef": rname} if rname else {}
+    elif isinstance(data_s.get("properties"), dict):
+        t = data_s["properties"].get("type", {}).get("enum")
+        out["kind"] = "reference"
+        out["data"] = {"resourceType": t[0] if t else None}
+    else:
+        return None
+    inc = props.get("included", {})
+    inc_types = []
+    if inc.get("type") == "array":
+        items = inc.get("items", {})
+        variants = items.get("anyOf") or ([items] if "$ref" in items else [])
+        for variant in variants:
+            vname, _ = _deref(variant, schemas)
+            if vname:
+                vt = schemas.get(vname, {}).get("properties", {}).get("type", {}).get("enum")
+                if vt:
+                    inc_types.append(vt[0])
+    if inc_types:
+        out["included"] = sorted(set(inc_types))
+    return out
+
+
+def response_resource_names(schema, schemas):
+    """Names of all component schemas referenced by a success response body."""
+    _, root = _deref(schema, schemas)
+    if not root:
+        return []
+    props = root.get("properties", {})
+    names = []
+    data_s = props.get("data", {})
+    if data_s.get("type") == "array":
+        n, _ = _deref(data_s.get("items", {}), schemas)
+        if n:
+            names.append(n)
+    elif isinstance(data_s, dict) and "$ref" in data_s:
+        n, _ = _deref(data_s, schemas)
+        if n:
+            names.append(n)
+    inc = props.get("included", {})
+    if inc.get("type") == "array":
+        items = inc.get("items", {})
+        for variant in items.get("anyOf") or ([items] if "$ref" in items else []):
+            n, _ = _deref(variant, schemas)
+            if n:
+                names.append(n)
+    return names
+
+
 def extract_param(param: dict) -> dict:
     return {
         "name": param["name"],
@@ -133,7 +357,10 @@ def generate(spec_path: str, output_path: str):
     with open(spec_path) as f:
         spec = json.load(f)
 
+    schemas = spec.get("components", {}).get("schemas", {})
     tools = []
+    body_schemas = OrderedDict()
+    resource_schemas = OrderedDict()
     stats = {"total": 0, "by_method": {}}
 
     for path, path_item in spec.get("paths", {}).items():
@@ -163,6 +390,29 @@ def generate(spec_path: str, output_path: str):
             tool["queryParams"] = query_params
             tool["hasBody"] = has_body(op)
 
+            # Request body schema (JSON:API Create/Update request, $refs resolved)
+            rb = op.get("requestBody", {}).get("content", {}).get("application/json")
+            if rb and isinstance(rb.get("schema"), dict):
+                bs_name, bs = body_summary(rb["schema"], schemas)
+                if bs_name and bs:
+                    body_schemas[bs_name] = bs
+                    tool["bodySchemaRef"] = bs_name
+
+            # Success response shape + referenced resource schemas
+            responses = op.get("responses", {})
+            for code in ("200", "201"):
+                rc = responses.get(code, {}).get("content", {}).get("application/json")
+                if rc and isinstance(rc.get("schema"), dict):
+                    rs = response_summary(rc["schema"], schemas)
+                    if rs:
+                        tool["responseSchema"] = rs
+                        for res_name in response_resource_names(rc["schema"], schemas):
+                            if res_name not in resource_schemas:
+                                rsum = resource_summary(res_name, schemas)
+                                if rsum:
+                                    resource_schemas[res_name] = rsum
+                    break
+
             tools.append(tool)
             stats["total"] += 1
             stats["by_method"][method.upper()] = (
@@ -179,6 +429,8 @@ def generate(spec_path: str, output_path: str):
         ),
         "stats": stats,
         "categories": sorted(set(t["category"] for t in tools)),
+        "bodySchemas": body_schemas,
+        "resourceSchemas": resource_schemas,
         "tools": tools,
     }
 
