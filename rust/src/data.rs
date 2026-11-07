@@ -79,9 +79,9 @@ pub struct ToolDef {
     pub method: String,
     pub path: String,
     pub category: String,
-    #[serde(default)]
+    #[serde(rename = "pathParams", default)]
     pub path_params: Vec<ToolParam>,
-    #[serde(default)]
+    #[serde(rename = "queryParams", default)]
     pub query_params: Vec<ToolParam>,
     #[serde(rename = "hasBody", default)]
     pub has_body: bool,
@@ -181,5 +181,33 @@ mod tests {
             t.body_schema_ref.as_deref(),
             Some("AccessibilityDeclarationCreateRequest")
         );
+    }
+
+    /// Regression: pathParams/queryParams serde renames must not be dropped,
+    /// or every call_api loses its arguments silently (limit=1 was ignored,
+    /// {id} substitutions never happened).
+    #[test]
+    fn params_deserialize_from_camel_case_keys() {
+        let data = load_tools();
+        let apps = data
+            .tools
+            .iter()
+            .find(|t| t.name == "apps_getCollection")
+            .expect("apps_getCollection missing");
+        assert!(
+            apps.query_params.len() >= 50,
+            "apps_getCollection must expose its query params, got {}",
+            apps.query_params.len()
+        );
+        assert!(apps.query_params.iter().any(|p| p.name == "limit"));
+
+        let get_instance = data
+            .tools
+            .iter()
+            .find(|t| t.name == "apps_getInstance")
+            .expect("apps_getInstance missing");
+        assert_eq!(get_instance.path_params.len(), 1);
+        assert_eq!(get_instance.path_params[0].name, "id");
+        assert!(get_instance.path_params[0].required);
     }
 }
