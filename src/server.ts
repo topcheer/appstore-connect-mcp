@@ -73,9 +73,14 @@ export function createMcpServer(opts: CreateServerOptions): Server {
         {
           name: "get_tool_details",
           description:
-            "Get full details of a specific API operation: all parameters, " +
-            "their types, descriptions, and required/optional status. " +
-            "Call this after search_apis to learn what arguments call_api needs.",
+            "Get full details of a specific API operation. " +
+            "Returns: all path/query parameters with types and required status; " +
+            "for POST/PATCH the exact JSON:API request body schema (data.type, " +
+            "attributes, relationships with target resource types); the response " +
+            "shape (single vs collection, fields available on the returned " +
+            "resource); and a ready-to-copy example body. " +
+            "ALWAYS call this between search_apis and call_api: it tells you " +
+            "exactly what to pass and what you get back.",
           inputSchema: {
             type: "object",
             properties: {
@@ -92,8 +97,10 @@ export function createMcpServer(opts: CreateServerOptions): Server {
           name: "call_api",
           description:
             "Execute any App Store Connect API operation. " +
-            "Use search_apis to find the operation name, then get_tool_details " +
-            "to see required parameters, then call_api to execute it.",
+            "Workflow: search_apis to find the operation, get_tool_details for " +
+            "the exact body schema and response fields, then call_api. " +
+            "Responses are JSON:API documents: read data[0].id (or data.id) for " +
+            "IDs to chain into subsequent calls, and data[0].attributes for fields.",
           inputSchema: {
             type: "object",
             properties: {
