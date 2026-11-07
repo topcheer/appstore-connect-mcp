@@ -36,3 +36,32 @@ jobs:
 
       - name: Docker build test
         run: docker build -t appstore-connect-mcp:ci .
+
+  rust-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Format check
+        run: cargo fmt --check
+        working-directory: rust
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+        working-directory: rust
+
+      - name: Tests
+        run: cargo test
+        working-directory: rust
+
+      - name: Docker build test (Rust)
+        # Context is the repo root: the crate embeds src/tools.json
+        run: docker build -f rust/Dockerfile -t appstore-connect-mcp-rust:ci .

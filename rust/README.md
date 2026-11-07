@@ -67,6 +67,26 @@ Legacy env aliases `ASC_PRIVATE_KEY` / `APPSTORE_CONNECT_PRIVATE_KEY` are honore
 - The MCP protocol layer is implemented directly (no SDK): JSON-RPC 2.0 with
   protocol-version echo on `initialize`.
 
+## Docker
+
+The image builds from the **repo root context** (the crate embeds `src/tools.json`):
+
+```bash
+docker build -f rust/Dockerfile -t appstore-connect-mcp-rust .
+docker run -d -p 3000:3000 --env-file .env appstore-connect-mcp-rust
+```
+
+Or via compose (from repo root):
+
+```bash
+docker compose -f rust/docker-compose.yml up -d
+```
+
+CI publishes it on push/tag as `ghcr.io/topcheer/appstore-connect-mcp-rust`
+(same tag scheme as the TypeScript image: `latest`, `main`, semver). Defaults
+to HTTP transport in Docker (parity with the TS image), non-root user,
+`/health` healthcheck baked into the image.
+
 ## Layout
 
 ```

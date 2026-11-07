@@ -100,6 +100,8 @@ A feature-parallel Rust implementation lives in `rust/` (crate `appstore-connect
 - **MCP protocol implemented directly** (no SDK): JSON-RPC 2.0, newline-delimited over stdio; axum-based HTTP with `mcp-session-id` sessions, `POST/DELETE /mcp` + `/health`. `GET /mcp` returns 405 (no server-initiated SSE).
 - **Deps on latest majors**: reqwest 0.13 (feature `rustls`, not `rustls-tls`), jsonwebtoken 11 (requires the `aws_lc_rs` feature or a manual CryptoProvider), axum 0.8.
 - **Same env vars/CLI flags** as the TS server; same JWT semantics (ES256, 20-min TTL, >60s cache window).
+- **Docker/CI (parity with TS version)**: `rust/Dockerfile` is a multi-stage build (rust:1-slim-bookworm builder + debian:bookworm-slim runtime, non-root, HEALTHCHECK via bash /dev/tcp). Build context is the **repo root** (`docker build -f rust/Dockerfile .`) because of the include_str! into `../src/tools.json`. `ci.yml` has a `rust-ci` job (fmt/clippy/test + docker build smoke); `docker.yml` publishes `ghcr.io/topcheer/appstore-connect-mcp-rust` (job `docker-rust`, separate gha cache scope `rust-image`).
+- **glibc trap**: builder and runtime MUST both be bookworm - unpinned `rust:1-slim` is now trixie (glibc 2.41) and the binary will not run on bookworm-slim. BuildKit cache mounts survive FROM changes, so after changing the builder image run `docker builder prune` or you will link stale objects.
 - Tests: `cargo test` (21 tests incl. JWT sign/verify against throwaway fixtures in `rust/tests/fixtures/`). Validation gate: `cargo test && cargo clippy` clean.
 - tools.json serde gotcha: all keys are camelCase (`apiVersion`, `pathParams`, `bodySchemaRef`) - keep serde renames in sync when touching `rust/src/data.rs`.
 
