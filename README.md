@@ -13,10 +13,12 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) server that exposes
 - **Complete API coverage** — all 1,216 operations from the App Store Connect API v4.4
 - **Context-friendly** — only 4 MCP tools registered (not 1,216), protecting LLM context window
 - **Tool discovery workflow** — `search_apis` → `get_tool_details` → `call_api`
+- **Full request/response schemas** — `get_tool_details` returns the resolved JSON:API body schema (attributes, relationships with target resource types), the response shape, and a ready-to-copy example body — agents never fly blind
 - **Response truncation** — large API responses truncated at 25KB to fit LLM context
 - **Two transports** — `stdio` for local use (ggcode, Claude Desktop, Cursor), `HTTP` for remote deployment
 - **JWT authentication** — automatic ES256 token generation and caching
-- **Docker ready** — multi-stage Dockerfile with health checks
+- **Docker ready** — multi-stage Dockerfile with health checks (TypeScript and Rust images)
+- **Rust port** — feature-parallel implementation in [`rust/`](rust/README.md) sharing the same generated catalog: single 6.6MB binary, no runtime deps
 - **Auto-publish** — push a git tag `v1.x.x` to publish to npm (OIDC, no token needed)
 
 ## Quick Start
@@ -151,7 +153,7 @@ The AI uses `search_apis` → `get_tool_details` → `call_api` to discover and 
 | Tool | Description |
 |------|-------------|
 | `search_apis` | Search 1,216 API operations by keyword, category, or HTTP method |
-| `get_tool_details` | Get full parameter schema + usage example for one operation |
+| `get_tool_details` | Full parameter schema + resolved request-body schema + response shape + copy-ready example for one operation |
 | `call_api` | Execute any API operation by name + arguments |
 | `list_categories` | List all 192 API resource categories with operation counts |
 
@@ -163,9 +165,18 @@ User: "List my apps"
 AI calls: search_apis("apps")
   → finds: apps_getCollection (GET /v1/apps)
   ↓
+AI calls: get_tool_details("apps_getCollection")
+  → gets: query params, response shape (collection of apps,
+    fields: name, bundleId, sku, ...)
+  ↓
 AI calls: call_api("apps_getCollection", {arguments: {limit: 10}})
   → returns: [{name: "MyApp", bundleId: "com.example.myapp"}, ...]
 ```
+
+For POST/PATCH operations the details payload additionally contains the exact
+JSON:API body schema — `data.type` enum, all `attributes` with types/enums,
+and `relationships` with their target resource types — plus an example body
+the model can copy and fill in.
 
 ### Common Operations
 
@@ -204,11 +215,23 @@ docker run -d \
   ghcr.io/topcheer/appstore-connect-mcp:latest
 ```
 
+Two images are published on every push and release:
+
+| Image | Runtime | Size |
+|-------|---------|------|
+| `ghcr.io/topcheer/appstore-connect-mcp` | Node 20 (TypeScript) | ~200MB |
+| `ghcr.io/topcheer/appstore-connect-mcp-rust` | debian-slim (Rust binary) | ~146MB |
+
+Both expose the same MCP surface: `POST /mcp`, `DELETE /mcp`, `GET /health`,
+port 3000, HTTP transport by default. The Rust image additionally refuses
+`GET /mcp` (server-initiated SSE) with 405, which MCP clients treat as
+optional.
+
 ### Health Check
 
 ```bash
 curl http://localhost:3000/health
-# {"status":"ok","server":"appstore-connect-mcp","version":"1.0.0"}
+# {"status":"ok","server":"appstore-connect-mcp","version":"1.0.5"}
 ```
 
 ### Connect Remote MCP to Claude Desktop
@@ -285,6 +308,21 @@ appstore-connect-mcp --verbose
 - **Runtime** loads `tools.json` (1,216 ops) but only registers 4 MCP tools
 - **JWT tokens** are cached and auto-refreshed (20-minute TTL)
 - **Responses** are truncated at 25KB to fit LLM context windows
+
+### Two Implementations
+
+| | TypeScript (`src/`) | Rust ([`rust/`](rust/README.md)) |
+|---|---------------------|----------------------------------|
+| Runtime | Node >= 18, npm package | Single static binary |
+| MCP layer | `@modelcontextprotocol/sdk` | Protocol implemented directly (JSON-RPC 2.0) |
+| HTTP transport | SDK StreamableHTTP (GET SSE wired, unused) | axum, `POST/DELETE /mcp` + `/health` (GET SSE -> 405) |
+| Catalog | `dist/tools.json` loaded at startup | Same file embedded at compile time (`include_str!`) |
+| Package | `@ggaiteam/appstore-connect-mcp` on npm | `ghcr.io/topcheer/appstore-connect-mcp-rust` image |
+| Env vars / CLI flags | identical | identical |
+
+Both share `src/tools.json` as the single source of truth — regenerate it
+with `npm run generate` and each implementation picks it up (TS: copy at
+build; Rust: embed at compile).
 
 ### Regenerating Tools
 
