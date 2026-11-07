@@ -1,0 +1,4 @@
+# Rust build artifacts
+target/
+# Throwaway P-256 test fixtures for JWT tests (not real credentials)
+!tests/fixtures/*.pem

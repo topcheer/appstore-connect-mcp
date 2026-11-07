@@ -92,6 +92,17 @@ Optional: `MCP_TRANSPORT` (`stdio`\|`http`), `MCP_PORT` (default 3000), `MCP_HOS
 
 CLI flags mirror these (`--transport`, `--port`, `--host`, `--issuer-id`, `--key-id`, `--p8-file`, `--verbose`). Never commit `.p8` files, `.env`, or key material.
 
+## Rust port (rust/)
+
+A feature-parallel Rust implementation lives in `rust/` (crate `appstore-connect-mcp`, version synced with package.json). Key facts:
+
+- **Embeds `src/tools.json` via `include_str!`** - the generated catalog is shared; never duplicate it. After `npm run generate`, just `cargo build` in `rust/`.
+- **MCP protocol implemented directly** (no SDK): JSON-RPC 2.0, newline-delimited over stdio; axum-based HTTP with `mcp-session-id` sessions, `POST/DELETE /mcp` + `/health`. `GET /mcp` returns 405 (no server-initiated SSE).
+- **Deps on latest majors**: reqwest 0.13 (feature `rustls`, not `rustls-tls`), jsonwebtoken 11 (requires the `aws_lc_rs` feature or a manual CryptoProvider), axum 0.8.
+- **Same env vars/CLI flags** as the TS server; same JWT semantics (ES256, 20-min TTL, >60s cache window).
+- Tests: `cargo test` (21 tests incl. JWT sign/verify against throwaway fixtures in `rust/tests/fixtures/`). Validation gate: `cargo test && cargo clippy` clean.
+- tools.json serde gotcha: all keys are camelCase (`apiVersion`, `pathParams`, `bodySchemaRef`) - keep serde renames in sync when touching `rust/src/data.rs`.
+
 ## Deployment
 
 - **Docker**: multi-stage Dockerfile (node:20-slim), defaults to `MCP_TRANSPORT=http`, exposes 3000, has a health check at `/health`.
