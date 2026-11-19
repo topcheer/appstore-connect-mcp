@@ -423,6 +423,24 @@ This server covers **all 1,216 operations** across the App Store Connect API:
 
 Including: Apps, Builds, App Store Versions, Beta Testing, Subscriptions, In-App Purchases, User Management, Sales Reports, Analytics, App Clips, Game Center, and more (192 categories total).
 
+## Auth & Token Lifecycle
+
+Both implementations share the same authentication behavior:
+
+- **JWT (ES256)** signed from your `.p8` key, 20-minute TTL (Apple's maximum)
+- **Automatic renewal** — the token is cached and transparently re-signed when
+  less than 60 seconds of life remain; every `call_api` picks up a valid token
+  with zero manual intervention
+- **401 self-healing** — if Apple rejects the cached token (clock skew,
+  server-side revocation between calls), the client force-signs a fresh JWT
+  and retries exactly once before surfacing an error
+- **No persistent connection** — every API call is an independent HTTPS
+  request; there is no session to expire, so the server can stay mounted
+  indefinitely. The only terminal failure mode is revoking the `.p8` key
+  itself (both implementations fail identically then)
+- `/health` reports process liveness only; credential validity is exercised
+  by real API calls (deliberately, to avoid burning rate limits on a probe)
+
 ## Security
 
 - Private keys are read from environment variables or files — never logged

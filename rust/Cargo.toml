@@ -1,6 +1,6 @@
 [package]
 name = "appstore-connect-mcp"
-version = "1.0.5"
+version = "1.0.7"
 edition = "2024"
 description = "App Store Connect MCP server (Rust port of @ggaiteam/appstore-connect-mcp)"
 license = "MIT"

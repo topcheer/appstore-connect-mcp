@@ -48,27 +48,34 @@ export async function callApi(opts: ApiRequestOptions): Promise<unknown> {
  }
 
  // Get JWT token
- const token = getToken(opts.credentials);
+ let token = getToken(opts.credentials);
 
  // Build fetch options
- const fetchOpts: RequestInit = {
-   method: opts.method,
-   headers: {
-     Authorization: `Bearer ${token}`,
+ const buildFetchOpts = (t: string): RequestInit => {
+   const headers: Record<string, string> = {
+     Authorization: `Bearer ${t}`,
      Accept: "application/json",
-   },
+   };
+   if (opts.body !== undefined && opts.method !== "GET" && opts.method !== "DELETE") {
+     headers["Content-Type"] = "application/json";
+   }
+   const init: RequestInit = { method: opts.method, headers };
+   if (opts.body !== undefined && opts.method !== "GET" && opts.method !== "DELETE") {
+     init.body = JSON.stringify(opts.body);
+   }
+   return init;
  };
 
- if (opts.body !== undefined && opts.method !== "GET" && opts.method !== "DELETE") {
-   fetchOpts.headers = {
-     ...fetchOpts.headers,
-     "Content-Type": "application/json",
-   };
-   fetchOpts.body = JSON.stringify(opts.body);
- }
-
  // Execute request
- const response = await fetch(urlObj.toString(), fetchOpts);
+ let response = await fetch(urlObj.toString(), buildFetchOpts(token));
+
+ // Self-healing: a cached token can be rejected by Apple (clock skew,
+ // server-side revocation between calls). Force-sign a fresh JWT and
+ // retry exactly once - subsequent calls take the normal cache path.
+ if (response.status === 401) {
+   token = getToken(opts.credentials, true);
+   response = await fetch(urlObj.toString(), buildFetchOpts(token));
+ }
 
  // Parse response
  const responseText = await response.text();

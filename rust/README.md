@@ -15,7 +15,7 @@ Same architecture, same data file, same environment variables:
 - **Shared catalog**: embeds the repo's generated `src/tools.json` at compile
   time (`include_str!`) - regenerate with `npm run generate` in the repo root
   and rebuild; no Rust-side step needed.
-- **JWT**: ES256 (ECDSA P-256 + SHA-256), 20-minute TTL (Apple maximum),
+- **JWT**: ES256 (ECDSA P-256 + SHA-256), 20-minute TTL (Apple maximum), 60s-early renewal, one-shot 401 force-refresh retry,
   in-memory cache refreshed when <60s of life remains.
 - **Transports**: stdio (newline-delimited JSON-RPC 2.0) and Streamable HTTP
   (`POST /mcp` JSON request/response, `DELETE /mcp` session termination,
@@ -106,7 +106,7 @@ rust/
 ## Tests
 
 ```bash
-cargo test     # 21 unit tests: catalog load, search/details/example, JWT
+cargo test     # 22 unit tests: catalog load, search/details/example, JWT
                # sign+verify against fixtures, URL building, MCP dispatch
 ```
 

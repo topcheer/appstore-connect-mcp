@@ -113,32 +113,49 @@ pub async fn call_api(
     body: Option<&Value>,
 ) -> Result<Value, ApiError> {
     let url = build_url(path, path_params, query_params);
+
+    let send_body = body.is_some() && method != "GET" && method != "DELETE";
+    let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|e| ApiError {
+        status: 0,
+        message: format!("invalid method: {e}"),
+    })?;
+
+    let attempt = |token: &str| {
+        let mut req = http
+            .request(method.clone(), url.clone())
+            .header("Authorization", format!("Bearer {token}"))
+            .header("Accept", "application/json");
+        if send_body {
+            req = req
+                .header("Content-Type", "application/json")
+                .json(body.unwrap());
+        }
+        req.send()
+    };
+
     let token = tokens.get_token(creds, false).map_err(|e| ApiError {
         status: 0,
         message: e.to_string(),
     })?;
-
-    let send_body = body.is_some() && method != "GET" && method != "DELETE";
-    let mut req = http
-        .request(
-            reqwest::Method::from_bytes(method.as_bytes()).map_err(|e| ApiError {
-                status: 0,
-                message: format!("invalid method: {e}"),
-            })?,
-            url.clone(),
-        )
-        .header("Authorization", format!("Bearer {token}"))
-        .header("Accept", "application/json");
-    if send_body {
-        req = req
-            .header("Content-Type", "application/json")
-            .json(body.unwrap());
-    }
-
-    let response = req.send().await.map_err(|e| ApiError {
+    let mut response = attempt(&token).await.map_err(|e| ApiError {
         status: 0,
         message: format!("request failed: {e}"),
     })?;
+
+    // Self-healing: a cached token can be rejected by Apple (clock skew,
+    // server-side revocation between calls). Force-sign a fresh JWT and
+    // retry exactly once - subsequent calls take the normal cache path.
+    if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+        let fresh = tokens.get_token(creds, true).map_err(|e| ApiError {
+            status: 0,
+            message: e.to_string(),
+        })?;
+        response = attempt(&fresh).await.map_err(|e| ApiError {
+            status: 0,
+            message: format!("request failed: {e}"),
+        })?;
+    }
+
     let status = response.status().as_u16();
     let response_text = response.text().await.map_err(|e| ApiError {
         status,
