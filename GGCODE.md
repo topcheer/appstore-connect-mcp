@@ -141,3 +141,10 @@ git push origin v1.2.3
 - **ESM project**: use `.js` extensions in relative imports (e.g. `import { x } from "./server.js"`), and `node:` prefixes for built-ins.
 - **No test framework is configured** — validation is via `typecheck`, `build`, and the CI build-output assertions.
 - **Secrets**: never log private keys or JWT tokens. The `--verbose` flag logs tool-call names only.
+
+### ASC query array serialization (v1.0.8+)
+
+App Store Connect rejects repeated query keys (`fields[apps]=a&fields[apps]=b`)
+with `400 PARAMETER_ERROR.DUPLICATE`. Array arguments passed to `call_api`
+are serialized comma-joined (`fields[apps]=a,b`) in both clients
+(rust/src/client.rs build_url, src/client.ts). Do not revert to repeated keys.
