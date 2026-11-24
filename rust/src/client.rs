@@ -254,7 +254,10 @@ mod tests {
         );
         assert!(!rendered.contains("empty="), "empty string must be skipped");
         assert!(!rendered.contains("null="), "null must be skipped");
-        assert!(!rendered.contains("blank-items"), "empty array must be skipped");
+        assert!(
+            !rendered.contains("blank-items"),
+            "empty array must be skipped"
+        );
         assert!(rendered.contains("limit=10"));
     }
 
