@@ -251,10 +251,16 @@ Two images are published on every push and release:
 | `ghcr.io/topcheer/appstore-connect-mcp` | Node 20 (TypeScript) | ~200MB |
 | `ghcr.io/topcheer/appstore-connect-mcp-rust` | debian-slim (Rust binary) | ~146MB |
 
-Both images are mirrored to Docker Hub as `ggcodedev/appstore-connect-mcp`
+Both images are published for **`linux/amd64` and `linux/arm64`** (multi-arch
+manifest lists; `docker pull` picks the right architecture automatically).
+They are mirrored to Docker Hub as `ggcodedev/appstore-connect-mcp`
 and `ggcodedev/appstore-connect-mcp-rust` (same tag set), published
 automatically whenever the repo secrets `DOCKERHUB_USERNAME` /
 `DOCKERHUB_TOKEN` are configured.
+
+Multi-arch note: the Rust image cross-compiles on the native build
+platform (`FROM --platform=$BUILDPLATFORM` + gcc cross toolchains) because
+aws-lc-rs cannot be compiled under qemu emulation - see rust/Dockerfile.
 
 Both expose the same MCP surface: `POST /mcp`, `DELETE /mcp`, `GET /health`,
 port 3000, HTTP transport by default. The Rust image additionally refuses

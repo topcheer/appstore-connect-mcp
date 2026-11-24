@@ -142,6 +142,17 @@ git push origin v1.2.3
 - **No test framework is configured** — validation is via `typecheck`, `build`, and the CI build-output assertions.
 - **Secrets**: never log private keys or JWT tokens. The `--verbose` flag logs tool-call names only.
 
+### Multi-arch Docker builds (rust/Dockerfile)
+
+Both images target `linux/amd64` + `linux/arm64`. The Rust builder stage
+uses `FROM --platform=$BUILDPLATFORM` + TARGETARCH-selected cross toolchains
+(gcc-aarch64-linux-gnu / gcc-x86-64-linux-gnu) - never qemu emulation,
+because aws-lc-rs cannot compile under it. aws-lc-sys/bindgen need the
+`CC_*/CXX_*/AR_*/CARGO_TARGET_*_LINKER/BINDGEN_EXTRA_CLANG_ARGS` env vars
+set per target triple (see rust/Dockerfile). Verify locally with:
+`docker buildx build --platform linux/amd64 -f rust/Dockerfile .` on an
+arm64 machine (exercises the cross path without qemu).
+
 ### ASC query array serialization (v1.0.8+)
 
 App Store Connect rejects repeated query keys (`fields[apps]=a&fields[apps]=b`)

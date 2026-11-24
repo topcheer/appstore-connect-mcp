@@ -83,8 +83,12 @@ docker compose -f rust/docker-compose.yml up -d
 ```
 
 CI publishes it on push/tag as `ghcr.io/topcheer/appstore-connect-mcp-rust`
-(same tag scheme as the TypeScript image: `latest`, `main`, semver). Defaults
-to HTTP transport in Docker (parity with the TS image), non-root user,
+(same tag scheme as the TypeScript image: `latest`, `main`, semver) for
+**`linux/amd64` and `linux/arm64`**. The arm64 image is produced by real
+cross-compilation on the amd64 builder (`FROM --platform=$BUILDPLATFORM` +
+`gcc-aarch64-linux-gnu` + `CC/CXX/LINKER/BINDGEN_EXTRA_CLANG_ARGS` env for
+aws-lc-sys/bindgen), never under qemu emulation. Defaults
+ to HTTP transport in Docker (parity with the TS image), non-root user,
 `/health` healthcheck baked into the image.
 
 ## Layout

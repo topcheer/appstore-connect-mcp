@@ -1,6 +1,9 @@
 # ─────────────────────────────────────────────────────────────────
 # Dockerfile for the Rust port (rust/)
-# Multi-stage build: compile static binary → ship minimal runtime
+# Multi-stage build: compile binary → ship minimal runtime
+# Multi-arch: linux/amd64 + linux/arm64 via TARGETARCH-aware cross
+# compilation (builder always runs on $BUILDPLATFORM, never qemu,
+# because aws-lc-rs does not survive emulation).
 #
 # NOTE: build context is the REPO ROOT (not rust/), because the crate
 # embeds ../src/tools.json at compile time:
@@ -8,12 +11,18 @@
 # ─────────────────────────────────────────────────────────────────
 
 # ── Stage 1: Build ───────────────────────────────────────────────
+# --platform=$BUILDPLATFORM keeps the builder on the native arch so
+# cross-compilation happens with a real toolchain instead of qemu.
 # Pin to bookworm to match the runtime stage (rust:1-slim now ships trixie glibc 2.41)
-FROM rust:1-slim-bookworm AS builder
+FROM --platform=$BUILDPLATFORM rust:1-slim-bookworm AS builder
 
-# build-essential (cc for aws-lc-rs), cmake + perl (aws-lc-sys build)
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential cmake perl \
+ARG TARGETARCH
+ARG BUILDPLATFORM
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential cmake perl pkg-config clang libclang-dev \
+        $( [ "$TARGETARCH" = "arm64" ] && echo gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross || true ) \
+        $( [ "$TARGETARCH" = "amd64" ] && echo gcc-x86-64-linux-gnu g++-x86-64-linux-gnu libc6-dev-amd64-cross || true ) \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
@@ -24,11 +33,37 @@ COPY rust/src ./src
 # The crate embeds the shared generated catalog via include_str!("../../src/tools.json")
 COPY src/tools.json /src/tools.json
 
-# BuildKit cache mounts keep the cargo registry/target across builds
+# ── Cross/native build ───────────────────────────────────────────
+# aws-lc-sys (via cmake) needs CC/CXX pointed at the cross toolchain,
+# and bindgen needs clang told the target triple.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --release --locked \
-    && cp target/release/appstore-connect-mcp /usr/local/bin/
+    set -eux; \
+    BUILDARCH="$(printf '%s' "$BUILDPLATFORM" | cut -d/ -f2)"; \
+    if [ "$TARGETARCH" = "$BUILDARCH" ]; then \
+        cargo build --release --locked; \
+        cp target/release/appstore-connect-mcp /usr/local/bin/; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+        rustup target add aarch64-unknown-linux-gnu; \
+        export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+               CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
+               CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++ \
+               AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar \
+               BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu"; \
+        cargo build --release --locked --target aarch64-unknown-linux-gnu; \
+        cp target/aarch64-unknown-linux-gnu/release/appstore-connect-mcp /usr/local/bin/; \
+    elif [ "$TARGETARCH" = "amd64" ]; then \
+        rustup target add x86_64-unknown-linux-gnu; \
+        export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc \
+               CC_x86_64_unknown_linux_gnu=x86_64-linux-gnu-gcc \
+               CXX_x86_64_unknown_linux_gnu=x86_64-linux-gnu-g++ \
+               AR_x86_64_unknown_linux_gnu=x86_64-linux-gnu-ar \
+               BINDGEN_EXTRA_CLANG_ARGS="--target=x86_64-linux-gnu --sysroot=/usr/x86_64-linux-gnu"; \
+        cargo build --release --locked --target x86_64-unknown-linux-gnu; \
+        cp target/x86_64-unknown-linux-gnu/release/appstore-connect-mcp /usr/local/bin/; \
+    else \
+        echo "unsupported TARGETARCH=$TARGETARCH" >&2; exit 1; \
+    fi
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────
 FROM debian:bookworm-slim AS runtime
