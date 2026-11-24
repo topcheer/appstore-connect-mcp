@@ -188,6 +188,33 @@ the model can copy and fill in.
 | Beta testers | `call_api("betaTesters_getCollection", {})` |
 | Sales reports | `call_api("salesReports_getCollection", {arguments: {"filter[frequency]": "DAILY"}})` |
 
+> **Docker Hub mirror**: when repo secrets `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`
+> are configured, the same images are also pushed to
+> `docker.io/topcheer/appstore-connect-mcp` and
+> `docker.io/topcheer/appstore-connect-mcp-rust` automatically.
+
+## Installing the Rust binary
+
+Prebuilt binaries are attached to every GitHub Release (`v1.1.0+`):
+
+```bash
+# one-line install (macOS arm64/x86_64, Linux x86_64)
+curl -fsSL https://raw.githubusercontent.com/topcheer/appstore-connect-mcp/main/install.sh | bash
+
+# or pin a version
+bash install.sh v1.1.0
+```
+
+The script detects your platform, verifies the SHA-256 checksum, installs to
+`~/.local/bin/appstore-connect-mcp` (override with `PREFIX=...`), and re-signs
+the binary ad-hoc on macOS so Gatekeeper does not kill it.
+
+From source instead:
+
+```bash
+cargo install --path rust          # requires cmake + perl (aws-lc-rs)
+```
+
 ## Remote Deployment (HTTP Mode)
 
 ### Docker Compose
