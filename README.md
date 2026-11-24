@@ -441,6 +441,14 @@ Both implementations share the same authentication behavior:
 - `/health` reports process liveness only; credential validity is exercised
   by real API calls (deliberately, to avoid burning rate limits on a probe)
 
+### Array query parameters
+
+For `filter[...]`, `fields[...]`, `include`, `sort`, and `limit[...]` style
+parameters, pass a JSON array — `call_api` serializes it the way
+App Store Connect requires (comma-joined: `fields[apps]=name,bundleId`),
+not as repeated keys, which Apple rejects with
+`400 PARAMETER_ERROR.DUPLICATE`.
+
 ## Security
 
 - Private keys are read from environment variables or files — never logged
