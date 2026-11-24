@@ -51,7 +51,8 @@ curl -fsSL https://raw.githubusercontent.com/topcheer/appstore-connect-mcp/main/
 #### Option C: Docker
 
 ```bash
-docker pull ghcr.io/topcheer/appstore-connect-mcp:latest
+docker pull ghcr.io/topcheer/appstore-connect-mcp:latest   # ghcr
+docker pull ggcodedev/appstore-connect-mcp:latest          # Docker Hub
 ```
 
 ### 3. Configure Your MCP Client
@@ -239,7 +240,8 @@ docker run -d \
   -e APP_STORE_CONNECT_ISSUER_ID=your-issuer-id \
   -e APP_STORE_CONNECT_KEY_ID=your-key-id \
   -e APP_STORE_CONNECT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----" \
-  ghcr.io/topcheer/appstore-connect-mcp:latest
+  ghcr.io/topcheer/appstore-connect-mcp:latest        # or ggcodedev/appstore-connect-mcp:latest
+  # pinned: ...:1.1.0
 ```
 
 Two images are published on every push and release:
@@ -248,6 +250,11 @@ Two images are published on every push and release:
 |-------|---------|------|
 | `ghcr.io/topcheer/appstore-connect-mcp` | Node 20 (TypeScript) | ~200MB |
 | `ghcr.io/topcheer/appstore-connect-mcp-rust` | debian-slim (Rust binary) | ~146MB |
+
+Both images are mirrored to Docker Hub as `ggcodedev/appstore-connect-mcp`
+and `ggcodedev/appstore-connect-mcp-rust` (same tag set), published
+automatically whenever the repo secrets `DOCKERHUB_USERNAME` /
+`DOCKERHUB_TOKEN` are configured.
 
 Both expose the same MCP surface: `POST /mcp`, `DELETE /mcp`, `GET /health`,
 port 3000, HTTP transport by default. The Rust image additionally refuses
