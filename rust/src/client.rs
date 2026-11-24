@@ -73,10 +73,17 @@ pub fn build_url(
                 Value::Null => {}
                 Value::String(s) if s.is_empty() => {}
                 Value::Array(items) => {
-                    for item in items {
-                        if !item.is_null() {
-                            pairs.append_pair(key, &value_to_string(item));
-                        }
+                    // App Store Connect expects comma-separated values
+                    // (`fields[apps]=name,bundleId`), NOT repeated keys —
+                    // repeated keys fail with 400 PARAMETER_ERROR.DUPLICATE.
+                    let joined: String = items
+                        .iter()
+                        .filter(|item| !item.is_null())
+                        .map(value_to_string)
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    if !joined.is_empty() {
+                        pairs.append_pair(key, &joined);
                     }
                 }
                 other => {
@@ -223,13 +230,14 @@ mod tests {
     }
 
     #[test]
-    fn appends_repeated_array_query_params_and_skips_empties() {
+    fn comma_joins_array_query_params_and_skips_empties() {
         let qp = map(&[
             ("filter[name]", json!("MyApp")),
             ("include", json!(["builds", "betaTesters"])),
             ("empty", json!("")),
             ("null", Value::Null),
             ("limit", json!(10)),
+            ("blank-items", json!([])),
         ]);
         let url = build_url("/v1/apps", &BTreeMap::new(), &qp);
         let rendered = url.as_str();
@@ -237,8 +245,16 @@ mod tests {
             rendered.contains("filter%5Bname%5D=MyApp"),
             "bracket key must be form-encoded: {rendered}"
         );
-        assert_eq!(url.query_pairs().filter(|(k, _)| k == "include").count(), 2);
+        // ASC requires comma-separated values; repeated keys are rejected
+        // with 400 PARAMETER_ERROR.DUPLICATE.
+        assert_eq!(url.query_pairs().filter(|(k, _)| k == "include").count(), 1);
+        assert!(
+            rendered.contains("include=builds%2CbetaTesters"),
+            "array values must be comma-joined: {rendered}"
+        );
         assert!(!rendered.contains("empty="), "empty string must be skipped");
+        assert!(!rendered.contains("null="), "null must be skipped");
+        assert!(!rendered.contains("blank-items"), "empty array must be skipped");
         assert!(rendered.contains("limit=10"));
     }
 

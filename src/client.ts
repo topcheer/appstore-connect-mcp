@@ -38,8 +38,15 @@ export async function callApi(opts: ApiRequestOptions): Promise<unknown> {
    for (const [key, value] of Object.entries(opts.queryParams)) {
      if (value === undefined || value === null || value === "") continue;
      if (Array.isArray(value)) {
-       for (const v of value) {
-         urlObj.searchParams.append(key, String(v));
+       // App Store Connect expects comma-separated values
+       // (`fields[apps]=name,bundleId`), NOT repeated keys - repeated
+       // keys fail with 400 PARAMETER_ERROR.DUPLICATE.
+       const joined = value
+         .filter((v) => v !== undefined && v !== null && String(v) !== "")
+         .map((v) => String(v))
+         .join(",");
+       if (joined) {
+         urlObj.searchParams.append(key, joined);
        }
      } else {
        urlObj.searchParams.append(key, String(value));
