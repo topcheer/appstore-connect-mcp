@@ -2,6 +2,7 @@
 name = "appstore-connect-mcp"
 version = "1.1.1"
 edition = "2024"
+rust-version = "1.85"
 description = "App Store Connect MCP server (Rust port of @ggaiteam/appstore-connect-mcp)"
 license = "MIT"
 repository = "https://github.com/topcheer/appstore-connect-mcp"

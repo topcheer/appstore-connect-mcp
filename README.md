@@ -196,24 +196,31 @@ the model can copy and fill in.
 
 ## Installing the Rust binary
 
-Prebuilt binaries are attached to every GitHub Release (`v1.1.0+`):
+**From crates.io** (any platform; MSRV Rust 1.85, build needs cmake + perl for aws-lc-rs):
 
 ```bash
-# one-line install (macOS arm64/x86_64, Linux x86_64)
+cargo install appstore-connect-mcp
+```
+
+**Prebuilt binaries** are attached to every GitHub Release (`v1.1.0+`) — macOS
+arm64/x86_64 and Linux x86_64:
+
+```bash
+# one-line install
 curl -fsSL https://raw.githubusercontent.com/topcheer/appstore-connect-mcp/main/install.sh | bash
 
 # or pin a version
-bash install.sh v1.1.0
+bash install.sh v1.1.1
 ```
 
 The script detects your platform, verifies the SHA-256 checksum, installs to
 `~/.local/bin/appstore-connect-mcp` (override with `PREFIX=...`), and re-signs
 the binary ad-hoc on macOS so Gatekeeper does not kill it.
 
-From source instead:
+From a local checkout instead:
 
 ```bash
-cargo install --path rust          # requires cmake + perl (aws-lc-rs)
+cargo install --path rust
 ```
 
 ## Remote Deployment (HTTP Mode)
