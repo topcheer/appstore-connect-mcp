@@ -248,7 +248,7 @@ docker run -d \
   -e APP_STORE_CONNECT_KEY_ID=your-key-id \
   -e APP_STORE_CONNECT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----" \
   ghcr.io/topcheer/appstore-connect-mcp:latest        # or ggcodedev/appstore-connect-mcp:latest
-  # pinned: ...:1.1.0
+  # pinned: ...:1.1.2
 ```
 
 Two images are published on every push and release:
