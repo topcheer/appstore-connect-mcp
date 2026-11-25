@@ -210,7 +210,7 @@ arm64/x86_64 and Linux x86_64:
 curl -fsSL https://raw.githubusercontent.com/topcheer/appstore-connect-mcp/main/install.sh | bash
 
 # or pin a version
-bash install.sh v1.1.1
+bash install.sh v1.1.2
 ```
 
 The script detects your platform, verifies the SHA-256 checksum, installs to
