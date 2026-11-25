@@ -30,8 +30,8 @@ WORKDIR /build
 # Manifest first for better cache behavior, then sources
 COPY rust/Cargo.toml rust/Cargo.lock ./
 COPY rust/src ./src
-# The crate embeds the shared generated catalog via include_str!("../../src/tools.json")
-COPY src/tools.json /src/tools.json
+# The crate embeds the shared generated catalog via include_str!("../tools.json")
+COPY rust/tools.json rust/tools.json
 
 # ── Cross/native build ───────────────────────────────────────────
 # aws-lc-sys (via cmake) needs CC/CXX pointed at the cross toolchain,

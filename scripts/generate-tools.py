@@ -7,6 +7,10 @@ a compact tools.json consumed by the MCP server at runtime.
 
 Usage:
   python3 scripts/generate-tools.py [path/to/openapi.oas.json] [output/tools.json]
+
+The generated file is written to the requested output (default src/tools.json)
+and mirrored to rust/tools.json so the Rust crate can embed it via
+include_str! within its own directory (required for crates.io packaging).
 """
 
 import json
@@ -438,6 +442,14 @@ def generate(spec_path: str, output_path: str):
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w") as f:
         json.dump(output, f, separators=(",", ":"))
+
+    # Mirror into the Rust crate so include_str!("../tools.json") works both
+    # for local builds and the crates.io package (file must live inside the
+    # crate directory).
+    rust_mirror = out.parent.parent / "rust" / "tools.json"
+    if out.name == "tools.json" and out.parent.name == "src":
+        rust_mirror.write_text(out.read_text())
+        print(f"  Mirrored to: {rust_mirror}")
 
     print(f"Generated {len(tools)} tools across {len(output['categories'])} categories")
     print(f"  By method: {stats['by_method']}")

@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────
 # docker-compose.yml - Remote deployment for the Rust port
 #
-# Usage (from repo root, context includes src/tools.json):
+# Usage (from repo root; the crate embeds rust/tools.json):
 #   docker compose -f rust/docker-compose.yml up -d
 #
 # Configure credentials via .env file or environment variables below.
