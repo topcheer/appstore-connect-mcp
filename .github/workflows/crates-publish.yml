@@ -13,6 +13,7 @@ name: crates-publish
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read
