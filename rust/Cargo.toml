@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/topcheer/appstore-connect-mcp"
 homepage = "https://github.com/topcheer/appstore-connect-mcp"
 readme = "README.md"
-keywords = ["app-store-connect", "mcp", "apple", "model-context-protocol", "ios"]
+keywords = ["app-store-connect", "mcp", "apple", "ios", "ios-app-distribution"]
 categories = ["development-tools", "command-line-utilities"]
 
 [dependencies]
