@@ -176,9 +176,16 @@ AI calls: call_api("apps_getCollection", {arguments: {limit: 10}})
 ```
 
 For POST/PATCH operations the details payload additionally contains the exact
-JSON:API body schema — `data.type` enum, all `attributes` with types/enums,
-and `relationships` with their target resource types — plus an example body
+JSON:API body schema - `data.type` enum, all `attributes` with types/enums,
+and `relationships` with their target resource types - plus an example body
 the model can copy and fill in.
+
+Some endpoints do not return JSON (live-verified): `salesReports` / `financeReports`
+return gzip reports and `perfPowerMetrics` returns a vendor JSON type, and Apple
+rejects the default `Accept: application/json` with 406. Pass `_accept` inside
+`arguments` (`"application/a-gzip"` or `"*/*"`); the npm server returns binary
+bodies as `{_binary:{base64}}` (or a temp-file path when large), the Rust build
+returns metadata only.
 
 ### Common Operations
 

@@ -207,7 +207,7 @@ impl Mcp {
                         "name": { "type": "string", "description": "The operation name (from search_apis), e.g. 'apps_getCollection'" },
                         "arguments": {
                             "type": "object",
-                            "description": "Arguments for the operation. Path params: e.g. {\"id\": \"123456\"}. Query params: e.g. {\"filter[name]\": \"MyApp\", \"limit\": 10}. For POST/PATCH: include \"_body\" with the JSON:API request body - call get_tool_details first for the exact body schema (attributes, relationships and response field names).",
+                            "description": "Arguments for the operation. Path params: e.g. {\"id\": \"123456\"}. Query params: e.g. {\"filter[name]\": \"MyApp\", \"limit\": 10}. For POST/PATCH: include \"_body\" with the JSON:API request body - call get_tool_details first for the exact body schema (attributes, relationships and response field names). Optional \"_accept\" overrides the HTTP Accept header for non-JSON endpoints: salesReports/financeReports need \"application/a-gzip\" (gzip report; the Rust build returns metadata only), perfPowerMetrics needs \"*/*\".",
                             "additionalProperties": true
                         }
                     },
@@ -353,6 +353,11 @@ impl Mcp {
         } else {
             None
         };
+        // Optional per-call Accept override (report endpoints return gzip).
+        let accept = op_args
+            .get("_accept")
+            .and_then(Value::as_str)
+            .map(str::to_string);
 
         let result = client::call_api(
             &self.http,
@@ -363,6 +368,7 @@ impl Mcp {
             &path_params,
             &query_params,
             body,
+            accept.as_deref(),
         )
         .await;
 
@@ -372,6 +378,10 @@ impl Mcp {
                     Value::String(s) => s,
                     other => serde_json::to_string_pretty(&other).unwrap_or_default(),
                 };
+                // Never truncate binary payloads (metadata only here, base64 in TS).
+                if text.contains("\"_binary\"") {
+                    return Ok(text);
+                }
                 if text.len() > MAX_RESPONSE_BYTES {
                     let overflow = text.len() - MAX_RESPONSE_BYTES;
                     Ok(format!(

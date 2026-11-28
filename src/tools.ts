@@ -122,6 +122,10 @@ export async function executeTool(
     body = args["_body"];
   }
 
+  // Optional per-call Accept override (report endpoints return gzip and reject
+  // application/json with 406; see recipes download-reports).
+  const accept = typeof args["_accept"] === "string" ? (args["_accept"] as string) : undefined;
+
   return callApi({
     method: tool.method,
     path: tool.path,
@@ -129,5 +133,6 @@ export async function executeTool(
     queryParams,
     body,
     credentials,
+    accept,
   });
 }

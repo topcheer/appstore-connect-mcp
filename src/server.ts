@@ -161,9 +161,12 @@ export function createMcpServer(opts: CreateServerOptions): Server {
                   "Arguments for the operation. " +
                   "Path params: e.g. {\"id\": \"123456\"}. " +
                   "Query params: e.g. {\"filter[name]\": \"MyApp\", \"limit\": 10}. " +
-                  "For POST/PATCH: include \"_body\" with the JSON:API request body - " +
-                  "call get_tool_details first for the exact body schema " +
-                  "(attributes, relationships and response field names).",
+              "For POST/PATCH: include \"_body\" with the JSON:API request body - " +
+                      "call get_tool_details first for the exact body schema " +
+                      "(attributes, relationships and response field names). " +
+                      "Optional \"_accept\" overrides the HTTP Accept header for endpoints that do not return JSON: " +
+                      "salesReports/financeReports need \"application/a-gzip\" (gzip report, returned as {_binary:{base64}} or a temp file path), " +
+                      "perfPowerMetrics needs \"*/*\".",
                 additionalProperties: true,
               },
             },
@@ -321,7 +324,11 @@ export function createMcpServer(opts: CreateServerOptions): Server {
         const text =
           typeof result === "string" ? result : JSON.stringify(result, null, 2);
 
-        // Truncate large responses to protect LLM context
+        // Truncate large responses to protect LLM context - but never binary
+        // payloads (base64 / file refs), which truncation would render useless.
+        if (result && typeof result === "object" && "_binary" in (result as Record<string, unknown>)) {
+          return { content: [{ type: "text", text }] };
+        }
         const MAX = 25000;
         return {
           content: [

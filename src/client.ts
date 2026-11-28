@@ -7,8 +7,15 @@
 
 import type { ASCCredentials } from "./types.js";
 import { getToken } from "./auth.js";
+import { randomBytes } from "node:crypto";
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const BASE_URL = "https://api.appstoreconnect.apple.com";
+
+/** Binary bodies up to this size are inlined as base64; larger ones go to a temp file. */
+const MAX_INLINE_BINARY = 8 * 1024 * 1024;
 
 export interface ApiRequestOptions {
   method: string;
@@ -17,6 +24,12 @@ export interface ApiRequestOptions {
   queryParams?: Record<string, string | string[]>;
   body?: unknown;
   credentials: ASCCredentials;
+  /**
+   * Override the Accept header. Report endpoints return gzip files (Apple
+   * rejects `application/json` with 406): use `application/a-gzip` for
+   * salesReports/financeReports, an asterisk wildcard (`&#42;/&#42;`) for perfPowerMetrics.
+   */
+  accept?: string;
 }
 
 /**
@@ -61,7 +74,7 @@ export async function callApi(opts: ApiRequestOptions): Promise<unknown> {
  const buildFetchOpts = (t: string): RequestInit => {
    const headers: Record<string, string> = {
      Authorization: `Bearer ${t}`,
-     Accept: "application/json",
+     Accept: opts.accept ?? "application/json",
    };
    if (opts.body !== undefined && opts.method !== "GET" && opts.method !== "DELETE") {
      headers["Content-Type"] = "application/json";
@@ -84,29 +97,43 @@ export async function callApi(opts: ApiRequestOptions): Promise<unknown> {
    response = await fetch(urlObj.toString(), buildFetchOpts(token));
  }
 
- // Parse response
- const responseText = await response.text();
+  // Parse response. Read bytes first: report endpoints return gzip files,
+  // which `response.text()` would corrupt.
+  const contentType = response.headers.get("content-type") ?? "";
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const responseText = buffer.toString("utf8");
 
- if (!response.ok) {
-   let errorDetail: unknown;
-   try {
-     errorDetail = JSON.parse(responseText);
-   } catch {
-     errorDetail = responseText;
-   }
-   throw new ApiError(response.status, errorDetail, opts.method, url);
- }
+  if (!response.ok) {
+    let errorDetail: unknown;
+    try {
+      errorDetail = JSON.parse(responseText);
+    } catch {
+      errorDetail = responseText;
+    }
+    throw new ApiError(response.status, errorDetail, opts.method, url);
+  }
 
- // 204 No Content or empty body
- if (response.status === 204 || !responseText) {
-   return { status: response.status, message: "Success (no content)" };
- }
+  // 204 No Content or empty body
+  if (response.status === 204 || buffer.length === 0) {
+    return { status: response.status, message: "Success (no content)" };
+  }
 
- try {
-   return JSON.parse(responseText);
- } catch {
-   return responseText;
- }
+  const isJson = /json/i.test(contentType) || /^\s*(\[|\{)/.test(responseText);
+  if (!isJson) {
+    const meta = { contentType, size: buffer.length };
+    if (buffer.length <= MAX_INLINE_BINARY) {
+      return { _binary: { ...meta, encoding: "base64", base64: buffer.toString("base64") } };
+    }
+    const file = join(tmpdir(), `appstore-connect-mcp-${randomBytes(6).toString("hex")}.bin`);
+    writeFileSync(file, buffer);
+    return { _binary: { ...meta, file } };
+  }
+
+  try {
+    return JSON.parse(responseText);
+  } catch {
+    return responseText;
+  }
 }
 
 /** Structured error from the App Store Connect API. */

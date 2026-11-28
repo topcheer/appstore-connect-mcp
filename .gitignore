@@ -19,3 +19,4 @@ AuthKey_*.p8
 secrets/
 *.key
 *.pem
+reports/

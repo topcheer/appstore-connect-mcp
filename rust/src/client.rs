@@ -118,8 +118,10 @@ pub async fn call_api(
     path_params: &BTreeMap<String, String>,
     query_params: &BTreeMap<String, Value>,
     body: Option<&Value>,
+    accept: Option<&str>,
 ) -> Result<Value, ApiError> {
     let url = build_url(path, path_params, query_params);
+    let accept = accept.unwrap_or("application/json");
 
     let send_body = body.is_some() && method != "GET" && method != "DELETE";
     let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|e| ApiError {
@@ -131,7 +133,7 @@ pub async fn call_api(
         let mut req = http
             .request(method.clone(), url.clone())
             .header("Authorization", format!("Bearer {token}"))
-            .header("Accept", "application/json");
+            .header("Accept", accept);
         if send_body {
             req = req
                 .header("Content-Type", "application/json")
@@ -164,10 +166,17 @@ pub async fn call_api(
     }
 
     let status = response.status().as_u16();
-    let response_text = response.text().await.map_err(|e| ApiError {
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let bytes = response.bytes().await.map_err(|e| ApiError {
         status,
         message: format!("failed to read response: {e}"),
     })?;
+    let response_text = String::from_utf8_lossy(&bytes).to_string();
 
     if !(200..300).contains(&status) {
         let detail: Value =
@@ -178,8 +187,23 @@ pub async fn call_api(
         });
     }
 
-    if status == 204 || response_text.is_empty() {
+    if status == 204 || bytes.is_empty() {
         return Ok(json!({ "status": status, "message": "Success (no content)" }));
+    }
+
+    // Binary bodies (gzip reports): the Rust build has no base64 dependency, so
+    // it reports metadata only - use the npm server for file downloads.
+    let looks_json = content_type.contains("json")
+        || response_text.trim_start().starts_with('[')
+        || response_text.trim_start().starts_with('{');
+    if !looks_json && String::from_utf8(bytes.to_vec()).is_err() {
+        return Ok(json!({
+            "_binary": {
+                "contentType": content_type,
+                "size": bytes.len(),
+                "note": "binary response; the Rust build returns metadata only - use the npm server (base64/file) or fetch the report directly"
+            }
+        }));
     }
 
     match serde_json::from_str::<Value>(&response_text) {

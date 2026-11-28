@@ -10,14 +10,15 @@
  *   APP_STORE_CONNECT_PRIVATE_KEY (PEM) or APP_STORE_CONNECT_P8_FILE (path)
  *
  * Safety model (see classify-ops.cjs for the full breakdown):
- *   Tier A  all GET operations. Discovery builds an id pool from the test app,
+ *   Tier A  all GET operations, allowed against ANY app (reads are
+ *           non-destructive). Discovery builds an id pool from the target app,
  *           then every read is called once (limit=1). Reads on resources the
- *           test app does not have return 404 - still a verified call shape.
- *   Tier B  write steps of the recipes ONLY, scoped to the test app. Never
- *           deletes, submissions, team/signing/webhooks/reviews/offer codes,
- *           tester emails, beta notifications, Xcode Cloud runs.
- *   The run refuses to start unless the app name contains "test" (or --force),
- *           so a production app is never written to by accident.
+ *           app does not have return 404 - still a verified call shape.
+ *           Report-generating GETs (salesReports, financeReports) are excluded.
+ *   Tier B  write steps of the recipes + submission loop, ONLY against an app
+ *           whose name contains "test" (or --force). Never deletes, team/
+ *           signing/webhooks/reviews/offer codes, tester emails, beta
+ *           notifications, Xcode Cloud runs.
  *
  * Output: one JSON report with per-call status, latency and the error body, so
  * recipe steps can be diffed against real behaviour.
@@ -37,6 +38,7 @@ const { values: args } = parseArgs({
     out: { type: "string", default: "reports/live-verification.json" },
     force: { type: "boolean", default: false },
     limit: { type: "string", default: "1" },
+    delay: { type: "string", default: "50" },
   },
 });
 if (!args.app) {
@@ -80,12 +82,21 @@ async function call(name, argOverrides = {}) {
     const result = await callApi({ method: tool.method, path: tool.path, pathParams, queryParams, body, credentials: creds });
     const entry = { n: ++seq, name, method: tool.method, status: "ok", ms: Date.now() - t0 };
     report.calls.push(entry);
+    await progress();
     return { ok: true, result };
   } catch (e) {
-    const entry = { n: ++seq, name, method: tool.method, status: "error", http: e.status ?? null, error: String(e.message).slice(0, 300), ms: Date.now() - t0 };
+    const entry = { n: ++seq, name, method: tool.method, status: "error", http: e.status ?? null, error: String(e.message).slice(0, 600), ms: Date.now() - t0 };
     report.calls.push(entry);
+    if (e.status === 429) await sleep(2000);
+    await progress();
     return { ok: false, status: e.status, error: e.message };
   }
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function progress() {
+  if (seq % 100 === 0) console.error(`  ${seq} calls...`);
+  return sleep(Number(args.delay));
 }
 
 const firstId = (result, type) => {
@@ -103,10 +114,13 @@ if (!app.ok) {
 }
 const appName = app.result.data.attributes.name;
 report.appName = appName;
-if (!/test/i.test(appName) && !args.force) {
-  console.error(`Refusing: app "${appName}" does not look like a test app. Re-run with --force if this is intentional.`);
+const isTestApp = /test/i.test(appName);
+report.readOnly = !args.tier.includes("B");
+if (args.tier.includes("B") && !isTestApp && !args.force) {
+  console.error(`Refusing WRITE verification: app "${appName}" does not look like a test app. Re-run with --force if this is intentional.`);
   process.exit(1);
 }
+console.error(`Target app: "${appName}" (${args.app}) - tier ${args.tier}${report.readOnly ? " (read-only)" : " (WRITES ENABLED)"}`);
 
 // ── discovery: build an id pool from the test app ───────────────────────────
 // pool: resourceType -> first id seen. Grown by walking every relationship of
@@ -126,17 +140,28 @@ for (const t of data.tools.filter((t) => t.name.endsWith("_getCollection"))) {
 }
 report.pool = Object.keys(pool).length;
 
-// ── Tier A: every GET once ──────────────────────────────────────────────────
+// ── Tier A: every GET once (report-generating GETs excluded) ───────────────
+// Live lesson (first run): Apple rejects `limit` on getInstance/getToOneRelated
+// endpoints (PARAMETER_ERROR.ILLEGAL) and on metrics endpoints without
+// groupBy/filter (INVALID). Only send `limit` when the operation declares it,
+// and scope collection reads to the target app when `filter[app]` exists -
+// several collections (reviewSubmissions, actors, nominations, ...) reject
+// requests without it even though the spec marks it optional.
 if (args.tier.includes("A")) {
-  for (const t of data.tools.filter((t) => t.method === "GET")) {
+  const REPORT_GETS = /^(salesReports|financeReports)_/;
+  for (const t of data.tools.filter((t) => t.method === "GET" && !REPORT_GETS.test(t.name))) {
+    const declared = new Set(t.queryParams.map((p) => p.name));
+    const q = {};
+    if (declared.has("limit") && !/_getMetrics$/.test(t.name)) q.limit = args.limit;
+    if (declared.has("filter[app]") && t.name.endsWith("_getCollection")) q["filter[app]"] = args.app;
     const pp = t.pathParams.map((p) => p.name);
     if (pp.length === 0) {
-      await call(t.name, { query: { limit: args.limit } });
+      await call(t.name, { query: q });
     } else if (pp.length === 1 && pp[0] === "id") {
       // owner resource = camelCase prefix before the first underscore
       const owner = t.name.split("_")[0];
       const ownerType = Object.keys(pool).find((k) => k.toLowerCase() === owner.toLowerCase());
-      if (ownerType) await call(t.name, { id: pool[ownerType], query: { limit: args.limit } });
+      if (ownerType) await call(t.name, { id: pool[ownerType], query: q });
       else report.calls.push({ n: ++seq, name: t.name, method: t.method, status: "skipped", error: "no fixture id" });
     } else {
       report.calls.push({ n: ++seq, name: t.name, method: t.method, status: "skipped", error: `multi path params ${pp.join(",")}` });
