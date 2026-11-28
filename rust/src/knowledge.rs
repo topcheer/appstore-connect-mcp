@@ -413,8 +413,8 @@ pub fn instructions(knowledge: &Knowledge, total_ops: usize) -> String {
     s.push_str("- search_apis is tokenized and ranked; use 1-4 keywords (e.g. 'review submit', 'beta tester', 'price'). Common terms are mapped to API vocabulary (testflight->beta, pricing->pricePoint, promo->offerCode, listing->appStoreVersionLocalization).\n");
     s.push_str("- Names follow <resource>_<action>: getCollection / getInstance / createInstance / updateInstance / deleteInstance / <related>_getToManyRelated / <related>_createToManyRelationship. Filtering is done with query params like filter[app], filter[platform], sort=-createdDate, limit, fields[<type>].\n");
     s.push_str("- Always call get_tool_details(name) before call_api for POST/PATCH: it returns the exact JSON:API body (data.type, attributes, relationships) and an example body. GETs only need the path params shown in the path.\n");
-    s.push_str("- Results are JSON:API. Chain ids: data[0].id, data.id, included[]. For collections follow links.next (pass its query params) to paginate.\n");
-    s.push_str("- Apps cannot be created and IAP products cannot be created through this API; everything else below is supported.\n\n");
+    s.push_str("- Results are JSON:API. Chain ids: data[0].id, data.id, included[]. For collections follow links.next - it carries a `cursor` query param - and read meta.paging.total for the count.\n");
+    s.push_str("- Apps cannot be created through this API (create the app in App Store Connect first); everything else - IAPs, subscriptions, versions, testers, prices, screenshots - is supported.\n\n");
     s.push_str("## Task recipes (multi-call workflows)\n");
     s.push_str("For these tasks, fetch the recipe first with prompts/get (name = recipe id, pass its arguments) instead of discovering the chain by searching:\n");
     for r in &knowledge.recipes {

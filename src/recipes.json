@@ -325,22 +325,27 @@
       ]
     },
     {
-      "id": "iap-localize-price-submit",
-      "title": "Localize, price, and submit an in-app purchase (IAP v2)",
-      "description": "Use when the user wants to set up, localize, price, or submit an in-app purchase / consumable / non-consumable. Note: IAP products themselves must be created in App Store Connect (the API cannot create them); the API manages localizations, prices, and submission.",
+      "id": "create-iap",
+      "title": "Create, localize, price, and submit an in-app purchase (IAP v2)",
+      "description": "Use when the user wants to create, add, set up, localize, price, or submit an in-app purchase / consumable / non-consumable / non-renewing subscription (IAP v2).",
       "args": [
-        { "name": "iap_id", "description": "inAppPurchase (v2) resource id.", "required": true }
+        { "name": "app_id", "description": "App resource id the IAP belongs to.", "required": true },
+        { "name": "iap_id", "description": "Existing inAppPurchases (v2) resource id when localizing/pricing/submitting an existing product; omit to create a new one.", "required": false }
       ],
       "steps": [
-        "1. Inspect: `inAppPurchases_getInstance` with path id={{iap_id}}, include=inAppPurchaseLocalizations,inAppPurchasePriceSchedule; report name, productId, type, state.",
-        "2. Localization: `inAppPurchaseLocalizations_createInstance` with `_body` = { data: { type: 'inAppPurchaseLocalizations', attributes: { name, locale, description }, relationships: { inAppPurchaseV2: { data: { type: 'inAppPurchases', id: '{{iap_id}}' } } } } }. Update with `inAppPurchaseLocalizations_updateInstance`.",
-        "3. Price: `inAppPurchasePriceSchedules_createInstance` with relationships { inAppPurchase: { data: { type: 'inAppPurchases', id: '{{iap_id}}' } }, baseTerritory (e.g. USA), manualPrices: { data: [{ type: 'inAppPurchasePrices', id }] } }. Note this endpoint uses the relationship name `inAppPurchase` (not `inAppPurchaseV2`) and prices are `inAppPurchasePrices`; ids come from an existing schedule (`inAppPurchasePriceSchedules_manualPrices_getToManyRelated`) or its equalized prices (`inAppPurchasePricePoints_equalizations_getToManyRelated`).",
-        "4. Submit: `inAppPurchaseSubmissions_createInstance` with relationships.inAppPurchaseV2. Then re-read `inAppPurchases_getInstance` and watch attributes.state until APPROVED (or REJECTED)."
+        "1. Create (skip if iap_id is known): `inAppPurchasesV2_createInstance` (POST /v2/inAppPurchases) with `_body` = { data: { type: 'inAppPurchases', attributes: { name, productId, inAppPurchaseType: 'CONSUMABLE' | 'NON_CONSUMABLE' | 'NON_RENEWING_SUBSCRIPTION', familySharable: false, reviewNote }, relationships: { app: { data: { type: 'apps', id: '{{app_id}}' } } } } }. Record `iapId` = data.id. productId is immutable.",
+        "2. Inspect: `inAppPurchasesV2_getInstance` (path id={{iap_id}}); localizations via `inAppPurchasesV2_inAppPurchaseLocalizations_getToManyRelated`; state is in attributes.state (MISSING_METADATA until steps 3-4 are done).",
+        "3. Localization: `inAppPurchaseLocalizations_createInstance` with `_body` = { data: { type: 'inAppPurchaseLocalizations', attributes: { name, locale, description }, relationships: { inAppPurchaseV2: { data: { type: 'inAppPurchases', id: iapId } } } } }. One per locale; update with `inAppPurchaseLocalizations_updateInstance`.",
+        "4. Price point: `inAppPurchasesV2_pricePoints_getToManyRelated` with path id={{iap_id}} and `filter[territory]`=USA (territory ids are ISO codes from `territories_getCollection`); pick customerPrice, record `inAppPurchasePriceId`.",
+        "5. Price: `inAppPurchasePriceSchedules_createInstance` with relationships { inAppPurchase: { data: { type: 'inAppPurchases', id: iapId } }, baseTerritory: { data: { type: 'territories', id: 'USA' } }, manualPrices: { data: [{ type: 'inAppPurchasePrices', id: inAppPurchasePriceId }] } }. Note this endpoint uses `inAppPurchase` (not `inAppPurchaseV2`).",
+        "6. Optional review image: `inAppPurchaseImages_createInstance` (attributes fileName, fileSize, relationships.inAppPurchaseV2), upload bytes, then `inAppPurchaseImages_updateInstance` with uploaded=true.",
+        "7. Submit: `inAppPurchaseSubmissions_createInstance` with relationships.inAppPurchaseV2 = iapId. Then re-read `inAppPurchasesV2_getInstance` and watch attributes.state until APPROVED (or REJECTED - inspect the submission items)."
       ],
       "pitfalls": [
-        "Relationship names are inconsistent on purpose by Apple: localizations and submissions use `inAppPurchaseV2`; the price schedule uses `inAppPurchase`. Copy them exactly from get_tool_details.",
-        "IAP products are created in App Store Connect UI; the API cannot create them.",
-        "Review screenshot per localization is required before submission for some IAP types."
+        "Relationship names differ per endpoint: create/get/localize/submit use `inAppPurchases` / `inAppPurchaseV2`; the price schedule uses `inAppPurchase` and its manualPrices are `inAppPurchasePrices` (ids from pricePoints). Copy them exactly from get_tool_details.",
+        "productId and inAppPurchaseType are immutable after creation.",
+        "A review screenshot per localization is required before the first submission for some IAP types.",
+        "Only one submission can be in flight at a time."
       ]
     },
     {
