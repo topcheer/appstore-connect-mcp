@@ -22,6 +22,7 @@ mod auth;
 mod client;
 mod data;
 mod http;
+mod knowledge;
 mod mcp;
 mod tools;
 mod types;

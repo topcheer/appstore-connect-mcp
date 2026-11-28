@@ -12,7 +12,8 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) server that exposes
 
 - **Complete API coverage** — all 1,216 operations from the App Store Connect API v4.4
 - **Context-friendly** — only 4 MCP tools registered (not 1,216), protecting LLM context window
-- **Tool discovery workflow** — `search_apis` → `get_tool_details` → `call_api`
+- **Tool discovery workflow** — `search_apis` (ranked, synonym-aware) → `get_tool_details` → `call_api`
+- **Task recipes as MCP prompts** — 18 multi-call workflows (submit for review, TestFlight distribution, pricing, subscriptions, screenshots, signing, ...) with exact operation chains and pitfalls, plus server instructions and Agent Skills (`skills/`) exports
 - **Full request/response schemas** — `get_tool_details` returns the resolved JSON:API body schema (attributes, relationships with target resource types), the response shape, and a ready-to-copy example body — agents never fly blind
 - **Response truncation** — large API responses truncated at 25KB to fit LLM context
 - **Two transports** — `stdio` for local use (ggcode, Claude Desktop, Cursor), `HTTP` for remote deployment
@@ -153,7 +154,7 @@ The AI uses `search_apis` → `get_tool_details` → `call_api` to discover and 
 
 | Tool | Description |
 |------|-------------|
-| `search_apis` | Search 1,216 API operations by keyword, category, or HTTP method |
+| `search_apis` | Search 1,216 API operations by keywords (tokenized, ranked, synonym-aware: `testflight` finds `beta*`, `pricing` finds price points). Results include `relatedRecipes` when a task recipe matches |
 | `get_tool_details` | Full parameter schema + resolved request-body schema + response shape + copy-ready example for one operation |
 | `call_api` | Execute any API operation by name + arguments |
 | `list_categories` | List all 192 API resource categories with operation counts |
@@ -188,6 +189,25 @@ the model can copy and fill in.
 | App versions | `call_api("appStoreVersions_getCollection", {arguments: {"filter[app]": "app-id"}})` |
 | Beta testers | `call_api("betaTesters_getCollection", {})` |
 | Sales reports | `call_api("salesReports_getCollection", {arguments: {"filter[frequency]": "DAILY"}})` |
+
+### Task Recipes (Prompts) and Skills
+
+Apple's OpenAPI spec ships with **zero descriptions**, and the generated summaries are derived from operationIds ("Create accessibility Declaration") — so a literal search cannot answer "how do I submit for review?". The server therefore carries curated task knowledge in `src/recipes.json`:
+
+- **18 recipes**, each the exact operation chain for one task (which operation, in which order, which id feeds where, which enums, plus pitfalls). Examples: `submit-for-review` (version → reviewSubmission → item → submitted), `testflight-distribute` (group → build → export compliance → beta review → testers), `change-app-price` (territory → price point → new schedule), `manage-screenshots` (set → reserve → upload → commit → reorder), `signing-cert-device-profile`.
+- Exposed through the standard MCP **prompts** capability (`prompts/list`, `prompts/get` with arguments such as `app_id`), summarized in the server **instructions** handed to the model at `initialize`, and hinted from `search_apis` via `relatedRecipes`.
+- The same data is exported to **Agent Skills** (`skills/<id>/SKILL.md`, [agentskills.io](https://agentskills.io) format) for clients that load skills from disk, e.g. Claude Code: `/.mcp__appstore-connect__submit-for-review app_id=...` (prompts appear as slash commands) or point your client at the `skills/` directory.
+
+MCP does **not** (as of spec 2026-07-28) define a `skills` primitive — prompts are the protocol-native mechanism, and `SKILL.md` is the client-side file format; this server provides both from one source. `scripts/build-skills.mjs` validates every operation name referenced by a recipe against the catalog (build fails on typos), mirrors the file into `rust/recipes.json`, and regenerates `skills/`.
+
+```
+User: "Submit version 2.1 for review"
+  ↓
+AI: prompts/get(name="submit-for-review", arguments={app_id})
+  → gets the 5-step chain + pitfalls
+  ↓
+AI: get_tool_details("reviewSubmissions_createInstance") → call_api(...)  … per step
+```
 
 > **Docker Hub mirror**: when repo secrets `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`
 > are configured, the same images are also pushed to
@@ -414,16 +434,24 @@ npm start
 ```
 ├── scripts/
 │   ├── generate-tools.py     # OpenAPI → tools.json generator
+│   ├── build-skills.mjs      # recipes.json → validate ops, mirror to rust/, export skills/
 │   └── install.sh            # One-line installer
 ├── src/
 │   ├── index.ts              # Entry point + CLI
-│   ├── server.ts             # MCP server (4 tools: search/details/call/list)
+│   ├── server.ts             # MCP server (4 tools + prompts + instructions)
 │   ├── transport.ts          # stdio + HTTP transports
 │   ├── auth.ts               # JWT (ES256) token generation
 │   ├── client.ts             # App Store Connect API client
 │   ├── tools.ts              # Tool schema builder + executor
+│   ├── search.ts             # Ranked, synonym-aware operation search
+│   ├── recipes.ts            # Task recipes: loader, prompt renderer, instructions
+│   ├── recipes.json          # Curated knowledge: synonyms, intent phrases, 18 recipes
 │   ├── types.ts              # TypeScript type definitions
 │   └── tools.json            # Generated tool definitions (1,216 ops)
+├── rust/src/                 # Rust port (same 4 tools, prompts, instructions, search)
+│   └── knowledge.rs         # recipes/search port (embeds rust/recipes.json)
+├── skills/                   # Agent Skills export (skills/<id>/SKILL.md)
+├── test/                     # node:test: search regression + real stdio MCP handshake
 ├── Dockerfile                # Multi-stage Docker build
 ├── docker-compose.yml        # Remote deployment config
 ├── .github/workflows/

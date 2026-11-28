@@ -27,34 +27,6 @@ pub fn cap_enum(values: &[String]) -> Vec<String> {
     out
 }
 
-/// search_apis: substring match over name+summary+path+category.
-pub fn search<'a>(
-    data: &'a ToolsData,
-    query: &str,
-    category: Option<&str>,
-    method: Option<&str>,
-) -> Vec<&'a ToolDef> {
-    let q = query.to_lowercase();
-    data.tools
-        .iter()
-        .filter(|t| {
-            if let Some(c) = category
-                && t.category != c
-            {
-                return false;
-            }
-            if let Some(m) = method
-                && t.method != m
-            {
-                return false;
-            }
-            format!("{} {} {} {}", t.name, t.summary, t.path, t.category)
-                .to_lowercase()
-                .contains(&q)
-        })
-        .collect()
-}
-
 /// get_tool_details payload: params + body schema + response schema + example.
 /// Emitted as compact JSON (consumed by an LLM; pretty-printing would nearly
 /// double its size).
@@ -288,17 +260,6 @@ mod tests {
         assert_eq!(capped.len(), MAX_ENUM + 1);
         assert_eq!(capped.last().unwrap(), "... (+5 more)");
         assert_eq!(cap_enum(&["a".into()]), ["a"]);
-    }
-
-    #[test]
-    fn search_matches_substring() {
-        let data = load_tools();
-        let hits = search(&data, "apps_getcollection", None, None);
-        assert!(hits.iter().any(|t| t.name == "apps_getCollection"));
-        let none = search(&data, "zzz_no_such_thing", None, None);
-        assert!(none.is_empty());
-        let by_method = search(&data, "app", None, Some("DELETE"));
-        assert!(by_method.iter().all(|t| t.method == "DELETE"));
     }
 
     #[test]

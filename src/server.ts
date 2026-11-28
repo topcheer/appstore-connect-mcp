@@ -2,21 +2,30 @@
  * server.ts - MCP server core.
  *
  * Exposes 4 MCP tools instead of 1200+ to keep LLM context small:
- *   - search_apis      → find the right operation by keyword
- *   - get_tool_details → get full parameter schema for an operation
- *   - call_api         → execute any App Store Connect API operation
- *   - list_categories  → browse API resource groups
+ *   - search_apis      -> find the right operation by keyword (ranked, synonym-aware)
+ *   - get_tool_details -> get full parameter schema for an operation
+ *   - call_api         -> execute any App Store Connect API operation
+ *   - list_categories  -> browse API resource groups
  *
- * The LLM workflow: search → get details → call_api.
+ * Plus task knowledge so the model knows WHICH operations form a task:
+ *   - prompts (prompts/list, prompts/get): one recipe per multi-call workflow
+ *   - instructions: search guidance + recipe index, injected at initialize
+ *
+ * The LLM workflow: search -> get details -> call_api, or prompts/get for a
+ * known task, then get details -> call_api per step.
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { ASCCredentials, ToolDef, ToolsData } from "./types.js";
 import { loadTools, buildInputSchema, executeTool } from "./tools.js";
+import { loadKnowledge, buildInstructions, renderRecipe } from "./recipes.js";
+import { OpSearch } from "./search.js";
 import { SERVER_VERSION } from "./version.js";
 
 export interface CreateServerOptions {
@@ -27,6 +36,8 @@ export interface CreateServerOptions {
 export function createMcpServer(opts: CreateServerOptions): Server {
   const { credentials, verbose } = opts;
   const toolsData = loadTools();
+  const knowledge = loadKnowledge();
+  const opSearch = new OpSearch(toolsData, knowledge);
 
   const toolMap = new Map<string, ToolDef>();
   for (const t of toolsData.tools) {
@@ -35,8 +46,42 @@ export function createMcpServer(opts: CreateServerOptions): Server {
 
   const server = new Server(
     { name: "appstore-connect-mcp", version: SERVER_VERSION },
-    { capabilities: { tools: {} } }
+    {
+      capabilities: { tools: {}, prompts: {} },
+      instructions: buildInstructions(knowledge, toolsData.stats.total),
+    }
   );
+
+  // -- Prompts: one per task recipe -------------------------------------
+  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+    prompts: knowledge.recipes.map((r) => ({
+      name: r.id,
+      description: r.description,
+      arguments: r.args.map((a) => ({
+        name: a.name,
+        description: a.description,
+        required: a.required,
+      })),
+    })),
+  }));
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const name = String(request.params.name ?? "");
+    const recipe = knowledge.recipes.find((r) => r.id === name);
+    if (!recipe) {
+      throw new Error(
+        `Unknown prompt: ${name}. Available: ${knowledge.recipes.map((r) => r.id).join(", ")}`
+      );
+    }
+    const args: Record<string, string> = {};
+    for (const [k, v] of Object.entries(request.params.arguments ?? {})) {
+      args[k] = String(v ?? "");
+    }
+    return {
+      description: recipe.title,
+      messages: [{ role: "user", content: { type: "text", text: renderRecipe(recipe, args) } }],
+    };
+  });
 
   // ── Only register 4 tools ──────────────────────────────────────
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -45,8 +90,9 @@ export function createMcpServer(opts: CreateServerOptions): Server {
         {
           name: "search_apis",
           description:
-            "Search App Store Connect API operations by keyword. " +
-            "Returns matching tool names, methods, paths, and categories. " +
+            "Search App Store Connect API operations by keywords (ranked, synonym-aware: " +
+            "'testflight' finds beta*, 'pricing' finds pricePoint*, 'submit review' finds reviewSubmissions*). " +
+            "Returns matching operation names, methods, paths, and categories, best first. " +
             "Use this first to find the right operation before calling call_api.",
           inputSchema: {
             type: "object",
@@ -148,16 +194,11 @@ export function createMcpServer(opts: CreateServerOptions): Server {
 
     // ── search_apis ──────────────────────────────────────────────
     if (name === "search_apis") {
-      const query = String(toolArgs.query || "").toLowerCase();
+      const query = String(toolArgs.query || "");
       const category = toolArgs.category as string | undefined;
       const method = toolArgs.method as string | undefined;
 
-      const matches = toolsData.tools.filter((t) => {
-        if (category && t.category !== category) return false;
-        if (method && t.method !== method) return false;
-        const haystack = `${t.name} ${t.summary} ${t.path} ${t.category}`.toLowerCase();
-        return haystack.includes(query);
-      });
+      const matches = opSearch.search(query, category, method);
 
       const results = matches.slice(0, 50).map((t) => ({
         name: t.name,
@@ -165,6 +206,7 @@ export function createMcpServer(opts: CreateServerOptions): Server {
         method: t.method,
         path: t.path,
         category: t.category,
+        hasBody: Boolean(t.hasBody),
       }));
 
       return {
@@ -176,6 +218,15 @@ export function createMcpServer(opts: CreateServerOptions): Server {
                 query,
                 totalMatches: matches.length,
                 showing: results.length,
+                relatedRecipes: opSearch.relatedRecipes(query).length
+                  ? opSearch.relatedRecipes(query)
+                  : undefined,
+                hint:
+                  matches.length === 0
+                    ? "No match. Try fewer/other keywords (1-3 words), or list_categories. For a multi-step task use prompts/get."
+                    : matches.length > results.length
+                      ? `Top ${results.length} of ${matches.length}; narrow with category/method or more specific keywords.`
+                      : undefined,
                 results,
               },
               null,

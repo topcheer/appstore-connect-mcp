@@ -5,6 +5,7 @@
 use crate::auth::TokenCache;
 use crate::client;
 use crate::data::load_tools;
+use crate::knowledge::{self, Knowledge, OpSearch};
 use crate::tools;
 use crate::types::Credentials;
 use serde_json::{Map, Value, json};
@@ -20,6 +21,9 @@ const MAX_RESPONSE_BYTES: usize = 25_000;
 
 pub struct Mcp {
     pub data: crate::data::ToolsData,
+    pub knowledge: Knowledge,
+    /// Ranked, synonym-aware search over `data.tools` (see knowledge.rs).
+    pub search: OpSearch,
     pub creds: Credentials,
     pub verbose: bool,
     pub tokens: TokenCache,
@@ -28,8 +32,13 @@ pub struct Mcp {
 
 impl Mcp {
     pub fn new(creds: Credentials, verbose: bool) -> Self {
+        let data = load_tools();
+        let knowledge = knowledge::load_knowledge();
+        let search = OpSearch::new(&data, &knowledge);
         Self {
-            data: load_tools(),
+            data,
+            knowledge,
+            search,
             creds,
             verbose,
             tokens: TokenCache::default(),
@@ -71,19 +80,23 @@ impl Mcp {
             }
             let params = msg.get("params").cloned().unwrap_or(json!({}));
 
-            let outcome = match method {
+            // (json-rpc error code, message) on failure; -32601 for unknown methods,
+            // -32602 for invalid params such as an unknown prompt.
+            let outcome: Result<Value, (i64, String)> = match method {
                 "initialize" => Ok(self.initialize(&params)),
                 "ping" => Ok(json!({})),
                 "tools/list" => Ok(json!({ "tools": self.tool_definitions() })),
-                "tools/call" => self.call_tool(&params).await,
-                other => Err(format!("Method not found: {other}")),
+                "tools/call" => self.call_tool(&params).await.map_err(|m| (-32601, m)),
+                "prompts/list" => Ok(self.prompts_list()),
+                "prompts/get" => self.prompts_get(&params),
+                other => Err((-32601, format!("Method not found: {other}"))),
             };
 
             Some(match outcome {
                 Ok(result) => json!({ "jsonrpc": "2.0", "id": id, "result": result }),
-                Err(message) => json!({
+                Err((code, message)) => json!({
                     "jsonrpc": "2.0", "id": id,
-                    "error": { "code": -32601, "message": message }
+                    "error": { "code": code, "message": message }
                 }),
             })
         })
@@ -96,9 +109,64 @@ impl Mcp {
             .unwrap_or("2025-06-18");
         json!({
             "protocolVersion": requested,
-            "capabilities": { "tools": {} },
+            "capabilities": { "tools": {}, "prompts": {} },
+            "instructions": knowledge::instructions(&self.knowledge, self.data.stats.total as usize),
             "serverInfo": { "name": SERVER_NAME, "version": SERVER_VERSION },
         })
+    }
+
+    /// prompts/list: one prompt per task recipe, with its arguments.
+    fn prompts_list(&self) -> Value {
+        let prompts: Vec<Value> = self
+            .knowledge
+            .recipes
+            .iter()
+            .map(|r| {
+                json!({
+                    "name": r.id,
+                    "description": r.description,
+                    "arguments": r.args.iter().map(|a| json!({
+                        "name": a.name, "description": a.description, "required": a.required
+                    })).collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        json!({ "prompts": prompts })
+    }
+
+    /// prompts/get: render a recipe with argument substitution.
+    fn prompts_get(&self, params: &Value) -> Result<Value, (i64, String)> {
+        let name = params.get("name").and_then(Value::as_str).unwrap_or("");
+        let recipe = self
+            .knowledge
+            .recipes
+            .iter()
+            .find(|r| r.id == name)
+            .ok_or_else(|| {
+                let available: Vec<&str> = self
+                    .knowledge
+                    .recipes
+                    .iter()
+                    .map(|r| r.id.as_str())
+                    .collect();
+                (
+                    -32602,
+                    format!(
+                        "Unknown prompt: {name}. Available: {}",
+                        available.join(", ")
+                    ),
+                )
+            })?;
+        let mut args = std::collections::HashMap::new();
+        if let Some(obj) = params.get("arguments").and_then(Value::as_object) {
+            for (k, v) in obj {
+                args.insert(k.clone(), stringify_arg(Some(v)));
+            }
+        }
+        Ok(json!({
+            "description": recipe.title,
+            "messages": [{ "role": "user", "content": { "type": "text", "text": knowledge::render_recipe(recipe, &args) } }],
+        }))
     }
 
     /// The 4 MCP tools with input schemas. Descriptions carry the discovery
@@ -108,11 +176,11 @@ impl Mcp {
         vec![
             json!({
                 "name": "search_apis",
-                "description": "Search App Store Connect API operations by keyword. Returns matching tool names, methods, paths, and categories. Use this first to find the right operation before calling call_api.",
+                "description": "Search App Store Connect API operations by keywords (ranked, synonym-aware: 'testflight' finds beta*, 'pricing' finds pricePoint*, 'submit review' finds reviewSubmissions*). Returns matching operation names, methods, paths, and categories, best first. Use this first to find the right operation before calling call_api.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "query": { "type": "string", "description": "Search keyword (e.g. 'app', 'build', 'subscription', 'review', 'beta tester')" },
+                        "query": { "type": "string", "description": "Search keywords (e.g. 'review submit', 'beta tester', 'price', 'testflight')" },
                         "category": { "type": "string", "description": "Filter by category. Use list_categories to see all options." },
                         "method": { "type": "string", "enum": ["GET", "POST", "PATCH", "DELETE"], "description": "Filter by HTTP method" }
                     },
@@ -186,11 +254,11 @@ impl Mcp {
     }
 
     fn search_apis(&self, args: &Map<String, Value>) -> Result<String, String> {
-        let query = stringify_arg(args.get("query")).to_lowercase();
+        let query = stringify_arg(args.get("query"));
         let category = args.get("category").and_then(Value::as_str);
         let method = args.get("method").and_then(Value::as_str);
 
-        let matches = tools::search(&self.data, &query, category, method);
+        let matches = self.search.search(&query, category, method);
         let total = matches.len();
         let results: Vec<Value> = matches
             .iter()
@@ -202,15 +270,33 @@ impl Mcp {
                     "method": t.method,
                     "path": t.path,
                     "category": t.category,
+                    "hasBody": t.has_body,
                 })
             })
             .collect();
-        let payload = json!({
-            "query": query,
-            "totalMatches": total,
-            "showing": results.len(),
-            "results": results,
-        });
+        let related = self.search.related_recipes(&query);
+        let hint: Option<String> = if total == 0 {
+            Some("No match. Try fewer/other keywords (1-3 words), or list_categories. For a multi-step task use prompts/get.".to_string())
+        } else if total > results.len() {
+            Some(format!(
+                "Top {} of {}; narrow with category/method or more specific keywords.",
+                results.len(),
+                total
+            ))
+        } else {
+            None
+        };
+        let mut payload = Map::new();
+        payload.insert("query".into(), json!(query));
+        payload.insert("totalMatches".into(), json!(total));
+        payload.insert("showing".into(), json!(results.len()));
+        if !related.is_empty() {
+            payload.insert("relatedRecipes".into(), json!(related));
+        }
+        if let Some(h) = hint {
+            payload.insert("hint".into(), json!(h));
+        }
+        payload.insert("results".into(), Value::Array(results));
         Ok(serde_json::to_string_pretty(&payload).unwrap_or_default())
     }
 
@@ -399,6 +485,90 @@ mod tests {
             SERVER_NAME
         );
         assert!(resp.pointer("/result/capabilities/tools").is_some());
+        assert!(resp.pointer("/result/capabilities/prompts").is_some());
+        let instructions = resp
+            .pointer("/result/instructions")
+            .and_then(Value::as_str)
+            .unwrap();
+        assert!(instructions.contains("prompts/get"));
+        assert!(instructions.contains("submit-for-review"));
+    }
+
+    #[tokio::test]
+    async fn prompts_list_and_get_serve_recipes() {
+        let m = mcp();
+        let list = m
+            .handle_message(
+                &json!({ "jsonrpc": "2.0", "id": 10, "method": "prompts/list", "params": {} }),
+            )
+            .await
+            .unwrap();
+        let prompts = list
+            .pointer("/result/prompts")
+            .and_then(Value::as_array)
+            .unwrap();
+        assert!(prompts.len() >= 18);
+        assert!(
+            prompts
+                .iter()
+                .any(|p| p.get("name").and_then(Value::as_str) == Some("submit-for-review"))
+        );
+
+        let get = m
+            .handle_message(&json!({
+                "jsonrpc": "2.0", "id": 11, "method": "prompts/get",
+                "params": { "name": "submit-for-review", "arguments": { "app_id": "123456789" } }
+            }))
+            .await
+            .unwrap();
+        let text = get
+            .pointer("/result/messages/0/content/text")
+            .and_then(Value::as_str)
+            .unwrap();
+        assert!(text.contains("path id=123456789"));
+        assert!(text.contains("reviewSubmissions_createInstance"));
+
+        let missing = m
+            .handle_message(&json!({ "jsonrpc": "2.0", "id": 12, "method": "prompts/get", "params": { "name": "nope" } }))
+            .await
+            .unwrap();
+        assert_eq!(
+            missing.pointer("/error/code").and_then(Value::as_i64),
+            Some(-32602)
+        );
+    }
+
+    #[tokio::test]
+    async fn search_apis_ranks_natural_language_and_hints_recipes() {
+        let m = mcp();
+        let resp = m
+            .handle_message(&json!({
+                "jsonrpc": "2.0", "id": 13, "method": "tools/call",
+                "params": { "name": "search_apis", "arguments": { "query": "submit app for review" } }
+            }))
+            .await
+            .unwrap();
+        let text = resp
+            .pointer("/result/content/0/text")
+            .and_then(Value::as_str)
+            .unwrap();
+        let payload: Value = serde_json::from_str(text).unwrap();
+        assert!(
+            payload
+                .pointer("/totalMatches")
+                .and_then(Value::as_u64)
+                .unwrap()
+                > 0
+        );
+        assert_eq!(
+            payload.pointer("/results/0/name").and_then(Value::as_str),
+            Some("reviewSubmissions_createInstance")
+        );
+        let related = payload
+            .get("relatedRecipes")
+            .and_then(Value::as_array)
+            .unwrap();
+        assert!(related.iter().any(|r| r == "submit-for-review"));
     }
 
     #[tokio::test]

@@ -32,7 +32,12 @@ jobs:
         run: |
           test -f dist/index.js
           test -f dist/tools.json
+          test -f dist/recipes.json
+          test -d skills/submit-for-review
           node -e "const d=require('./dist/tools.json'); if(d.stats.total < 1000) throw new Error('Expected 1000+ tools, got '+d.stats.total); console.log('OK: '+d.stats.total+' tools')"
+
+      - name: Test (search regression + real MCP stdio handshake)
+        run: node --test test/
 
       - name: Docker build test
         run: docker build -t appstore-connect-mcp:ci .

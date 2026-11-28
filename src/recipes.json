@@ -1,0 +1,489 @@
+{
+  "$comment": "Task recipes + search synonyms for the MCP server. Single source of truth: loaded by src/server.ts (TS), mirrored to rust/recipes.json for the Rust crate, and exported to skills/*/SKILL.md by scripts/build-skills.mjs. Every operation name referenced in `steps` MUST exist in tools.json - scripts/build-skills.mjs validates this and fails the build otherwise.",
+
+  "synonyms": {
+    "testflight": ["beta", "betaTester", "betaGroup", "betaBuild"],
+    "beta": ["testflight"],
+    "review": ["reviewSubmission", "appReviewDetail", "betaAppReview"],
+    "submit": ["reviewSubmission", "submission", "submitted"],
+    "upload": ["buildUpload", "uploadFile"],
+    "price": ["pricePoint", "priceSchedule", "prices"],
+    "pricing": ["price", "pricePoint", "priceSchedule"],
+    "cost": ["price", "pricePoint"],
+    "promo": ["offerCode", "promotedPurchase", "promotional"],
+    "coupon": ["offerCode", "offerCodeCustomCode"],
+    "screenshot": ["appScreenshot", "screenshotSet"],
+    "preview": ["appPreview", "previewSet"],
+    "video": ["appPreview", "previewSet"],
+    "crash": ["betaCrashLog", "betaFeedbackCrash"],
+    "feedback": ["betaFeedbackScreenshot", "betaFeedbackCrash"],
+    "sales": ["salesReport"],
+    "revenue": ["salesReport", "financeReport"],
+    "finance": ["financeReport"],
+    "earnings": ["financeReport", "salesReport"],
+    "report": ["salesReport", "financeReport", "analyticsReport"],
+    "certificate": ["certificates", "profiles"],
+    "signing": ["certificates", "profiles", "devices"],
+    "profile": ["profiles"],
+    "device": ["devices", "udid"],
+    "tester": ["betaTester"],
+    "listing": ["appStoreVersionLocalization"],
+    "metadata": ["appStoreVersionLocalization", "appInfoLocalization"],
+    "description": ["appStoreVersionLocalization", "appInfoLocalization"],
+    "localization": ["Localization", "locale"],
+    "locale": ["Localization"],
+    "language": ["Localization", "locale"],
+    "whatsnew": ["appStoreVersionLocalization", "whatsNew"],
+    "release": ["appStoreVersion", "release", "phasedRelease"],
+    "version": ["appStoreVersion"],
+    "phased": ["appStoreVersionPhasedRelease", "phasedReleaseState"],
+    "subscription": ["subscription", "subscriptionGroup", "subscriptionPrice"],
+    "iap": ["inAppPurchase"],
+    "inapp": ["inAppPurchase"],
+    "purchase": ["inAppPurchase", "promotedPurchase"],
+    "winback": ["winBackOffer"],
+    "rating": ["ageRating", "customerReview", "rating"],
+    "reviewer": ["customerReview"],
+    "customer": ["customerReview", "customerReviewResponse"],
+    "webhook": ["webhook", "webhookPing", "webhookDeliveries"],
+    "notification": ["webhook"],
+    "team": ["users", "userInvitation"],
+    "user": ["users", "userInvitation"],
+    "invite": ["userInvitation"],
+    "member": ["users", "userInvitation"],
+    "category": ["appInfo", "appCategory"],
+    "age": ["ageRating"],
+    "encryption": ["appEncryptionDeclaration"],
+    "compliance": ["appEncryptionDeclaration"],
+    "export": ["appEncryptionDeclaration"],
+    "build": ["build", "buildUpload", "preReleaseVersion"],
+    "latest": ["build", "appStoreVersion"],
+    "app": ["apps", "appStoreVersion", "appInfo"],
+    "group": ["betaGroup", "subscriptionGroup"],
+    "code": ["offerCode", "offerCodeCustomCode"],
+    "offer": ["offerCode", "introductoryOffer", "promotionalOffer", "winBackOffer"],
+    "territory": ["territory", "availability"],
+    "country": ["territory"],
+    "region": ["territory", "financeReport"],
+    "availability": ["availability", "appAvailabilityV2", "territoryAvailability"],
+    "ci": ["ciProduct", "ciBuildRun", "ciWorkflow"],
+    "xcode": ["ciProduct", "ciBuildRun", "ciMacOsVersion", "ciXcodeVersion"],
+    "game": ["gameCenter"],
+    "event": ["appEvent"],
+    "custom": ["appCustomProductPage"],
+    "product": ["appCustomProductPage", "inAppPurchase", "subscription"],
+    "page": ["appCustomProductPage"],
+    "clip": ["appClip"],
+    "analytics": ["analyticsReport"],
+    "metric": ["analyticsReport", "perfPowerMetric"],
+    "nomination": ["nomination"],
+    "preorder": ["appAvailabilityV2", "endAppAvailabilityPreOrder"],
+    "edit": ["appStoreVersionExperiment"],
+    "experiment": ["appStoreVersionExperiment"],
+    "merchant": ["merchantId"],
+    "sandbox": ["sandboxTester"],
+    "tester": ["betaTester", "sandboxTester"],
+    "scm": ["scmRepository", "scmProvider", "scmGitReference", "scmPullRequest"],
+    "git": ["scmRepository", "scmGitReference", "scmPullRequest"],
+    "marketplace": ["marketplaceSearchDetail", "marketplaceWebhook"],
+    "background": ["backgroundAsset"],
+    "search": ["searchKeyword", "marketplaceSearchDetail"]
+  },
+
+  "phrases": {
+    "submit for review": ["reviewSubmissions_createInstance", "reviewSubmissionItems_createInstance", "reviewSubmissions_updateInstance"],
+    "send to review": ["reviewSubmissions_createInstance", "reviewSubmissionItems_createInstance", "reviewSubmissions_updateInstance"],
+    "add to review": ["reviewSubmissions_createInstance", "reviewSubmissionItems_createInstance"],
+    "submit app review": ["reviewSubmissions_createInstance", "reviewSubmissionItems_createInstance", "reviewSubmissions_updateInstance"],
+    "withdraw from review": ["reviewSubmissions_updateInstance"],
+    "replace build": ["appStoreVersions_updateInstance", "builds_getCollection"],
+    "attach build": ["appStoreVersions_updateInstance", "builds_getCollection"],
+    "change build": ["appStoreVersions_updateInstance", "builds_getCollection"],
+    "select build": ["appStoreVersions_updateInstance", "builds_getCollection"],
+    "export compliance": ["appEncryptionDeclarations_createInstance", "builds_appEncryptionDeclaration_updateToOneRelationship"],
+    "encryption declaration": ["appEncryptionDeclarations_createInstance", "builds_appEncryptionDeclaration_updateToOneRelationship"],
+    "beta review": ["betaAppReviewSubmissions_createInstance", "builds_betaAppReviewSubmission_getToOneRelated"],
+    "external testflight": ["betaAppReviewSubmissions_createInstance", "betaGroups_updateInstance"],
+    "release now": ["appStoreVersionReleaseRequests_createInstance"],
+    "manual release": ["appStoreVersionReleaseRequests_createInstance", "appStoreVersions_updateInstance"],
+    "scheduled release": ["appStoreVersions_updateInstance"],
+    "public link": ["betaGroups_updateInstance"],
+    "whats new": ["appStoreVersionLocalizations_updateInstance"],
+    "what's new": ["appStoreVersionLocalizations_updateInstance"],
+    "release notes": ["appStoreVersionLocalizations_updateInstance"],
+    "support url": ["appStoreVersionLocalizations_updateInstance"],
+    "app price": ["appPriceSchedules_createInstance", "apps_appPricePoints_getToManyRelated"],
+    "price change": ["appPriceSchedules_createInstance", "apps_appPricePoints_getToManyRelated"],
+    "change price": ["appPriceSchedules_createInstance", "apps_appPricePoints_getToManyRelated"],
+    "app store version": ["apps_appStoreVersions_getToManyRelated", "appStoreVersions_getInstance"],
+    "latest build": ["builds_getCollection"],
+    "newest build": ["builds_getCollection"],
+    "crash log": ["betaFeedbackCrashSubmissions_getInstance", "builds_getCollection"],
+    "customer review": ["apps_customerReviews_getToManyRelated", "customerReviewResponses_createInstance"],
+    "reply to review": ["customerReviewResponses_createInstance", "apps_customerReviews_getToManyRelated"],
+    "respond to review": ["customerReviewResponses_createInstance", "apps_customerReviews_getToManyRelated"],
+    "provisioning profile": ["profiles_createInstance", "profiles_getCollection"],
+    "register device": ["devices_createInstance"],
+    "invite": ["userInvitations_createInstance"],
+    "age rating": ["ageRatingDeclarations_updateInstance", "appInfos_ageRatingDeclaration_getToOneRelated"],
+    "category": ["appInfos_updateInstance", "appCategories_getCollection"],
+    "offer code": ["subscriptionOfferCodes_createInstance", "inAppPurchaseOfferCodes_createInstance"],
+    "promo code": ["subscriptionOfferCodes_createInstance", "inAppPurchaseOfferCodes_createInstance"],
+    "custom code": ["subscriptionOfferCodeCustomCodes_createInstance", "inAppPurchaseOfferCodeCustomCodes_createInstance"],
+    "win back": ["winBackOffers_createInstance"],
+    "sales report": ["salesReports_getCollection"],
+    "finance report": ["financeReports_getCollection"],
+    "webhook": ["webhooks_createInstance", "apps_webhooks_getToManyRelated"],
+    "server notification": ["webhooks_createInstance", "apps_webhooks_getToManyRelated"]
+  },
+
+  "recipes": [
+    {
+      "id": "submit-for-review",
+      "title": "Submit an app version for App Review",
+      "description": "Use when the user wants to submit, send, or hand off a version to Apple App Review (submit for review, send to review, add to review, ready for review). Chains app -> appStoreVersion -> reviewSubmission -> reviewSubmissionItem -> submitted.",
+      "args": [
+        { "name": "app_id", "description": "App resource id (numeric). Find via apps_getCollection filter[bundleId] if unknown.", "required": true },
+        { "name": "platform", "description": "IOS | MAC_OS | TV_OS | VISION_OS (default IOS).", "required": false }
+      ],
+      "steps": [
+        "1. Pick the version to submit: `apps_appStoreVersions_getToManyRelated` with path id={{app_id}}, query `filter[platform]`={{platform}} and `fields[appStoreVersions]=versionString,appStoreState,build`. Candidate states that can be submitted: PREORDER_READY_FOR_REVIEW, READY_FOR_REVIEW, REPLACED_WITH_NEW_DEVELOPER_REJECTED_VERSION, DEVELOPER_REJECTED, REJECTED (after fixing metadata). Record `versionId` = data[0].id.",
+        "2. Reuse an open submission if one exists: `reviewSubmissions_getCollection` with `filter[platform]`={{platform}} and `filter[app]`={{app_id}}. A submission with attributes.state READY_FOR_REVIEW or UNRESOLVED_ISSUES can take more items; otherwise create a new one in step 3.",
+        "3. Create the submission (if needed): `reviewSubmissions_createInstance` with `_body` = { data: { type: 'reviewSubmissions', attributes: { platform: {{platform}} }, relationships: { app: { data: { type: 'apps', id: '{{app_id}}' } } } } }. Record `submissionId` = data.id.",
+        "4. Attach the version: `reviewSubmissionItems_createInstance` with `_body` = { data: { type: 'reviewSubmissionItems', relationships: { reviewSubmission: { data: { type: 'reviewSubmissions', id: submissionId } }, appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } } } } }.",
+        "5. Submit: `reviewSubmissions_updateInstance` with path id=submissionId and `_body` = { data: { type: 'reviewSubmissions', id: submissionId, attributes: { submitted: true } } }. Confirm data.attributes.state becomes WAITING_FOR_REVIEW.",
+        "6. Report: version string, submission state, and any items with state UNRESOLVED_ISSUES (these block submission until fixed)."
+      ],
+      "pitfalls": [
+        "Only one review submission per platform can be open at a time; always check step 2 before creating.",
+        "Items can only be added while the submission is READY_FOR_REVIEW or UNRESOLVED_ISSUES.",
+        "The version must have a build attached and all required metadata; if appStoreState is not submittable, fix metadata first (see update-store-listing) or attach a build (see replace-build-on-version).",
+        "Platform attribute must match the version's platform; MAC_OS vs IOS mismatch is rejected."
+      ]
+    },
+    {
+      "id": "configure-release",
+      "title": "Configure release type, schedule, phased release, or release now",
+      "description": "Use when the user asks about manual release, automatic release, scheduled release, phased release, release after approval, or releasing an approved version now.",
+      "args": [
+        { "name": "version_id", "description": "appStoreVersion resource id (or resolve from app_id via apps_appStoreVersions_getToManyRelated).", "required": true }
+      ],
+      "steps": [
+        "1. Read current settings: `appStoreVersions_getInstance` with path id={{version_id}} and `fields[appStoreVersions]=versionString,appStoreState,releaseType,earliestReleaseDate`. Also `appStoreVersions_appStoreVersionPhasedRelease_getToOneRelated` to see if a phased release exists.",
+        "2. Set the release type: `appStoreVersions_updateInstance` with path id={{version_id}} and `_body` = { data: { type: 'appStoreVersions', id: '{{version_id}}', attributes: { releaseType: 'MANUAL' | 'AFTER_APPROVAL' | 'SCHEDULED' } } }. For SCHEDULED also set `earliestReleaseDate` (ISO 8601 with time, in the past is rejected).",
+        "3. Phased release (optional, after approval only): if none exists, `appStoreVersionPhasedReleases_createInstance` with `_body` = { data: { type: 'appStoreVersionPhasedReleases', attributes: { phasedReleaseState: 'ACTIVE' }, relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: '{{version_id}}' } } } } }. Later control with `appStoreVersionPhasedReleases_updateInstance`: phasedReleaseState ACTIVE | PAUSED | COMPLETE.",
+        "4. Release a MANUAL version now (only when appStoreState is PENDING_DEVELOPER_RELEASE): `appStoreVersionReleaseRequests_createInstance` with `_body` = { data: { type: 'appStoreVersionReleaseRequests', relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: '{{version_id}}' } } } } }.",
+        "5. Verify with `appStoreVersions_getInstance` and report releaseType, earliestReleaseDate, phasedRelease state and appStoreState."
+      ],
+      "pitfalls": [
+        "PENDING_DEVELOPER_RELEASE means approved and waiting for the developer - that is when step 4 applies, not before.",
+        "Phased release must be enabled before the version is approved; it cannot be started retroactively.",
+        "Changing releaseType is a PATCH of attributes only - never send relationships unless you intend to change the build."
+      ]
+    },
+    {
+      "id": "replace-build-on-version",
+      "title": "Replace the build attached to a version",
+      "description": "Use when the user wants to swap, replace, attach, or change the build of an app store version (e.g. after rejection, or to attach a newer build before submission).",
+      "args": [
+        { "name": "version_id", "description": "appStoreVersion resource id.", "required": true },
+        { "name": "build_id", "description": "Processed build id (optional; if omitted, list the latest valid builds so the user can choose).", "required": false }
+      ],
+      "steps": [
+        "1. Find candidate builds: `builds_getCollection` with query `filter[app]` (app id from the version), `filter[preReleaseVersion.version]`=<versionString> (must equal the version's versionString), `filter[processingState]`=VALID, `sort`=-uploadedDate, `limit`=10, `fields[builds]=version,uploadedDate,expired,processingState`. Pick `buildId`.",
+        "2. Attach: `appStoreVersions_updateInstance` with path id={{version_id}} and `_body` = { data: { type: 'appStoreVersions', id: '{{version_id}}', relationships: { build: { data: { type: 'builds', id: buildId } } } } }.",
+        "3. Verify with `builds_appStoreVersion_getToOneRelated` (path id=buildId) or `appStoreVersions_getInstance` with include=build."
+      ],
+      "pitfalls": [
+        "Only allowed while the version is in PREORDER_READY_FOR_REVIEW, READY_FOR_REVIEW, DEVELOPER_REJECTED, REPLACED_WITH_NEW_DEVELOPER_REJECTED_VERSION, REJECTED, or INVALID_BINARY; also triggered automatically when a build expires.",
+        "The build's preReleaseVersion.version must match the versionString; a build uploaded with a different CFBundleShortVersionString is invisible to this filter.",
+        "If the version is WAITING_FOR_REVIEW it cannot be changed - it must be withdrawn first."
+      ]
+    },
+    {
+      "id": "find-latest-build",
+      "title": "Find the latest processed build for an app",
+      "description": "Use when the user asks for the newest/latest build, build list, build status, processing state, or which builds exist for a version.",
+      "args": [
+        { "name": "app_id", "description": "App resource id.", "required": true },
+        { "name": "version", "description": "Optional CFBundleShortVersionString (marketing version) filter, e.g. 2.1.0.", "required": false }
+      ],
+      "steps": [
+        "1. `builds_getCollection` with query `filter[app]`={{app_id}}, `sort`=-uploadedDate, `limit`=20, `fields[builds]=version,uploadedDate,processingState,expired,buildNumber,cfBundleVersion`, and include=preReleaseVersion. Add `filter[preReleaseVersion.version]`={{version}} if given, and `filter[processingState]`=VALID to hide failed builds.",
+        "2. Read data[0] as the newest. Report uploadedDate, processingState (VALID | PROCESSING | FAILED | INVALID), expired flag, and the id for chaining.",
+        "3. For TestFlight state add `builds_betaAppReviewSubmission_getToOneRelated` (path id=buildId) to see betaReviewState."
+      ],
+      "pitfalls": [
+        "processingState=VALID means ready; PROCESSING builds cannot be attached or distributed yet.",
+        "expired=true builds cannot be submitted; the version then needs a replacement build (see replace-build-on-version)."
+      ]
+    },
+    {
+      "id": "testflight-distribute",
+      "title": "Distribute a build to testers via TestFlight",
+      "description": "Use when the user wants to distribute, push, or share a build with testers, create or manage beta groups, enable public link, or submit a build for external TestFlight beta review.",
+      "args": [
+        { "name": "app_id", "description": "App resource id.", "required": true },
+        { "name": "build_id", "description": "Processed build id (see find-latest-build).", "required": true },
+        { "name": "external", "description": "true for external testers (requires beta review); false/omitted for internal group (App Store Connect users only, up to 100).", "required": false }
+      ],
+      "steps": [
+        "1. Find or create the group: `betaGroups_getCollection` with `filter[app]`={{app_id}}, `filter[name]`=<group name>. If missing, `betaGroups_createInstance` with `_body` = { data: { type: 'betaGroups', attributes: { name, isInternalGroup: !external, hasAccessToAllBuilds: false, publicLinkEnabled: false, feedbackEnabled: true }, relationships: { app: { data: { type: 'apps', id: '{{app_id}}' } } } } }. Record `groupId`.",
+        "2. Attach the build: `betaGroups_builds_createToManyRelationship` with path id=groupId and `_body` = { data: [{ type: 'builds', id: '{{build_id}}' }] }.",
+        "3. External only - export compliance: ensure the build declares encryption. `builds_appEncryptionDeclaration_getToOneRelated` (path id={{build_id}}); if missing, `appEncryptionDeclarations_createInstance` with attributes { usesExemptEncryption: false } and relationship app, then `builds_appEncryptionDeclaration_updateToOneRelationship` with `_body` = { data: { type: 'appEncryptionDeclarations', id } }.",
+        "4. External only - beta review: `betaAppReviewSubmissions_createInstance` with `_body` = { data: { type: 'betaAppReviewSubmissions', relationships: { build: { data: { type: 'builds', id: '{{build_id}}' } } } } }. Poll `builds_betaAppReviewSubmission_getToOneRelated` until attributes.betaReviewState is APPROVED (usually minutes to a day). Internal groups skip this.",
+        "5. Add testers: see manage-beta-testers. Enable a public link with `betaGroups_updateInstance` attributes { publicLinkEnabled: true, publicLinkLimitEnabled, publicLinkLimit, publicLink }.",
+        "6. Verify: `betaGroups_builds_getToManyRelated` and `betaGroups_getInstance`."
+      ],
+      "pitfalls": [
+        "Internal groups: testers must already be App Store Connect users with access to the app. External groups: testers can be any email, but the build must pass beta review once per version.",
+        "Beta review is per build version; a new build number generally needs re-review unless it only changes metadata.",
+        "Export compliance must be resolved before external distribution; missing declarations block review."
+      ]
+    },
+    {
+      "id": "manage-beta-testers",
+      "title": "Add or remove TestFlight beta testers",
+      "description": "Use when the user wants to add, invite, remove, list, or import beta testers, or manage tester membership in a beta group.",
+      "args": [
+        { "name": "group_id", "description": "betaGroup resource id.", "required": true }
+      ],
+      "steps": [
+        "1. Check existing testers: `betaTesters_getCollection` with `filter[email]`=<email>, `filter[app]`=<app id>. Record testerId if present.",
+        "2. New tester + group in one call: `betaTesters_createInstance` with `_body` = { data: { type: 'betaTesters', attributes: { email, firstName, lastName }, relationships: { betaGroups: { data: [{ type: 'betaGroups', id: '{{group_id}}' }] } } } }.",
+        "3. Existing tester into the group: `betaGroups_betaTesters_createToManyRelationship` with path id={{group_id}} and `_body` = { data: [{ type: 'betaTesters', id: testerId }] }.",
+        "4. Limit which builds a tester sees: `betaTesters_builds_createToManyRelationship` (path id=testerId) with builds; otherwise they get all builds the group has.",
+        "5. Remove: `betaTesters_betaGroups_deleteToManyRelationship` or `betaTesters_deleteInstance`. List: `betaGroups_betaTesters_getToManyRelated` (path id={{group_id}})."
+      ],
+      "pitfalls": [
+        "Tester emails are Apple IDs; duplicates across groups of the same app are the same betaTester resource - link, do not recreate.",
+        "Deleting a betaTester removes them from all groups of the app."
+      ]
+    },
+    {
+      "id": "update-store-listing",
+      "title": "Update App Store listing metadata (description, keywords, what's new, URLs)",
+      "description": "Use when the user wants to edit, update, or set app store description, keywords, promotional text, what's new text, support/marketing URL, screenshots ordering text, or localize the product page.",
+      "args": [
+        { "name": "version_id", "description": "appStoreVersion resource id.", "required": true },
+        { "name": "locale", "description": "Locale tag, e.g. en-US, zh-Hans. Defaults to the app's primaryLocale.", "required": false }
+      ],
+      "steps": [
+        "1. Get localizations: `appStoreVersions_appStoreVersionLocalizations_getToManyRelated` with path id={{version_id}}, `filter[locale]`={{locale}} (optional). Record `localizationId` and the app's primaryLocale from `apps_getInstance` if needed.",
+        "2. If the locale is missing: `appStoreVersionLocalizations_createInstance` with `_body` = { data: { type: 'appStoreVersionLocalizations', attributes: { locale }, relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: '{{version_id}}' } } } } }.",
+        "3. Edit: `appStoreVersionLocalizations_updateInstance` with path id=localizationId and only the attributes to change: description, keywords (comma separated, <=100 characters), promotionalText (<=170), marketingUrl, supportUrl, whatsNew (required for updates), and for the primary locale the keywords are the ones that matter for search.",
+        "4. Verify with `appStoreVersionLocalizations_getInstance`."
+      ],
+      "pitfalls": [
+        "PATCH only the attributes you change; sending empty strings clears fields.",
+        "whatsNew is required for every new version except the first; missing it leaves the version not submittable.",
+        "Keywords are shared across locales? No - each locale has its own; the primary locale carries the most weight."
+      ]
+    },
+    {
+      "id": "manage-screenshots",
+      "title": "Manage App Store screenshots and previews",
+      "description": "Use when the user wants to upload, add, reorder, replace, or delete App Store screenshots or app previews (videos) for a version.",
+      "args": [
+        { "name": "localization_id", "description": "appStoreVersionLocalization resource id (from update-store-listing step 1).", "required": true }
+      ],
+      "steps": [
+        "1. List sets: `appStoreVersionLocalizations_appScreenshotSets_getToManyRelated` with path id={{localization_id}}, include=appScreenshots. Each set has a screenshotDisplayType (e.g. APP_IPHONE_67, APP_IPAD_PRO_3GEN_129).",
+        "2. Create a set if needed: `appScreenshotSets_createInstance` with `_body` = { data: { type: 'appScreenshotSets', attributes: { screenshotDisplayType }, relationships: { appStoreVersionLocalization: { data: { type: 'appStoreVersionLocalizations', id: '{{localization_id}}' } } } } }. Record `setId`.",
+        "3. Reserve the image: `appScreenshots_createInstance` with `_body` = { data: { type: 'appScreenshots', attributes: { fileName, fileSize }, relationships: { appScreenshotSet: { data: { type: 'appScreenshotSets', id: setId } } } } }. The response has `uploadOperations` (method, url, length, offset, requestHeaders) - upload the bytes to those URLs (this MCP cannot transfer binary; do it with curl/HTTP from the client) and compute the checksum.",
+        "4. Commit: `appScreenshots_updateInstance` with path id=<screenshot id> and `_body` = { data: { type: 'appScreenshots', id, attributes: { uploaded: true, sourceFileChecksum } } }. Poll `appScreenshots_getInstance` until assetDeliveryState.state is COMPLETE.",
+        "5. Reorder: `appScreenshotSets_appScreenshots_replaceToManyRelationship` with path id=setId and `_body` = { data: [{ type: 'appScreenshots', id }, ...] } in the desired order. Delete with `appScreenshots_deleteInstance`.",
+        "6. Videos: same flow with appPreviewSets / appPreviews (appPreviewSets_createInstance with previewType, appPreviews_createInstance with video)."
+      ],
+      "pitfalls": [
+        "A set needs 1-10 screenshots (some display types require at least 3) before the version can be submitted.",
+        "Checksum format and size limits per display type are in get_tool_details(appScreenshots_updateInstance) - verify there before committing.",
+        "Until uploaded=true the reservation expires; re-reserve if the upload did not finish."
+      ]
+    },
+    {
+      "id": "create-subscription",
+      "title": "Create an auto-renewable subscription with pricing and submit it",
+      "description": "Use when the user wants to create, add, or set up an auto-renewable subscription, subscription group, subscription price, introductory offer, or submit a subscription for review.",
+      "args": [
+        { "name": "app_id", "description": "App resource id.", "required": true }
+      ],
+      "steps": [
+        "1. Group: `apps_subscriptionGroups_getToManyRelated` with path id={{app_id}} (filter[name] if you know the reference name); create if missing with `subscriptionGroups_createInstance` (_body attributes { referenceName }, relationships.app). Record `groupId`.",
+        "2. Subscription: `subscriptions_createInstance` with `_body` = { data: { type: 'subscriptions', attributes: { name, productId, subscriptionPeriod: 'ONE_MONTH' | 'ONE_WEEK' | 'ONE_YEAR' | ..., familySharable: false, groupLevel: 1 }, relationships: { group: { data: { type: 'subscriptionGroups', id: groupId } } } } }. Record `subscriptionId`. productId is immutable.",
+        "3. Localization: `subscriptionLocalizations_createInstance` with attributes { name, locale, description } and relationships.subscription. One per locale.",
+        "4. Price point: `subscriptions_pricePoints_getToManyRelated` with path id=subscriptionId and `filter[territory]`=USA (territory ids are ISO codes from `territories_getCollection`). Pick customerPrice, record `pricePointId`.",
+        "5. Price: `subscriptionPrices_createInstance` with `_body` = { data: { type: 'subscriptionPrices', attributes: { startDate: null, preserveCurrentPrice: false }, relationships: { subscription: {...}, territory: { data: { type: 'territories', id: 'USA' } }, subscriptionPricePoint: { data: { type: 'subscriptionPricePoints', id: pricePointId } } } } }.",
+        "6. Review screenshot (required for first submission): `subscriptionAppStoreReviewScreenshots_createInstance` with attributes { fileName, fileSize } and relationships.subscription; upload bytes, then `subscriptionAppStoreReviewScreenshots_updateInstance` with uploaded=true.",
+        "7. Submit: `subscriptionSubmissions_createInstance` with relationships.subscription. Then poll `subscriptions_getInstance` (path id=subscriptionId) and read attributes.state until APPROVED (or REJECTED - inspect the submission items).",
+        "8. Optional introductory offer: `subscriptionIntroductoryOffers_createInstance` (relationships subscription + territory + subscriptionPricePoint, attributes duration, numberOfPeriods, offerMode)."
+      ],
+      "pitfalls": [
+        "The subscription must be in state MISSING_METADATA until localization, price and screenshot exist; only then submit.",
+        "Only one submission can be in flight at a time; a rejected submission needs the items fixed and a new submission.",
+        "productId and subscriptionPeriod cannot be changed after creation."
+      ]
+    },
+    {
+      "id": "iap-localize-price-submit",
+      "title": "Localize, price, and submit an in-app purchase (IAP v2)",
+      "description": "Use when the user wants to set up, localize, price, or submit an in-app purchase / consumable / non-consumable. Note: IAP products themselves must be created in App Store Connect (the API cannot create them); the API manages localizations, prices, and submission.",
+      "args": [
+        { "name": "iap_id", "description": "inAppPurchase (v2) resource id.", "required": true }
+      ],
+      "steps": [
+        "1. Inspect: `inAppPurchases_getInstance` with path id={{iap_id}}, include=inAppPurchaseLocalizations,inAppPurchasePriceSchedule; report name, productId, type, state.",
+        "2. Localization: `inAppPurchaseLocalizations_createInstance` with `_body` = { data: { type: 'inAppPurchaseLocalizations', attributes: { name, locale, description }, relationships: { inAppPurchaseV2: { data: { type: 'inAppPurchases', id: '{{iap_id}}' } } } } }. Update with `inAppPurchaseLocalizations_updateInstance`.",
+        "3. Price: `inAppPurchasePriceSchedules_createInstance` with relationships { inAppPurchaseV2, baseTerritory (e.g. USA), manualPrices: [{ type: 'inAppPurchasePricePoints', id }] }. Price point ids come from an existing schedule (`inAppPurchasePriceSchedules_manualPrices_getToManyRelated`) or its equalized prices (`inAppPurchasePricePoints_equalizations_getToManyRelated`); call get_tool_details for the exact body shape.",
+        "4. Submit: `inAppPurchaseSubmissions_createInstance` with relationships.inAppPurchaseV2. Then re-read `inAppPurchases_getInstance` and watch attributes.state until APPROVED (or REJECTED)."
+      ],
+      "pitfalls": [
+        "Relationship name is `inAppPurchaseV2` (not `inAppPurchase`) in all IAP v2 bodies.",
+        "IAP products are created in App Store Connect UI; the API cannot create them.",
+        "Review screenshot per localization is required before submission for some IAP types."
+      ]
+    },
+    {
+      "id": "change-app-price",
+      "title": "Change the app price or price schedule",
+      "description": "Use when the user wants to change, set, schedule, or inspect the app's price (tier, price point, base territory, manual/automatic prices).",
+      "args": [
+        { "name": "app_id", "description": "App resource id.", "required": true }
+      ],
+      "steps": [
+        "1. Current schedule: `apps_appPriceSchedule_getToOneRelated` with path id={{app_id}} and include=manualPrices,baseTerritory.",
+        "2. Choose base territory (e.g. USA) via `territories_getCollection`; territory ids are ISO codes.",
+        "3. Choose the price point: `apps_appPricePoints_getToManyRelated` with path id={{app_id}} and `filter[territory]`=USA; pick customerPrice, record `pricePointId`.",
+        "4. Create a new schedule (this is how price changes are applied): `appPriceSchedules_createInstance` with `_body` = { data: { type: 'appPriceSchedules', relationships: { app: { data: { type: 'apps', id: '{{app_id}}' } }, baseTerritory: { data: { type: 'territories', id: 'USA' } }, manualPrices: { data: [{ type: 'appPricePoints', id: pricePointId }] } } } }. Optional attributes.startDate schedules the change.",
+        "5. Verify: `appPriceSchedules_manualPrices_getToManyRelated` and `appPriceSchedules_automaticPrices_getToManyRelated` (other territories follow automatically)."
+      ],
+      "pitfalls": [
+        "There is no PATCH for manual prices; every change is a new appPriceSchedule.",
+        "A schedule with a future startDate stays pending until that date; confirm with `apps_appPriceSchedule_getToOneRelated`."
+      ]
+    },
+    {
+      "id": "create-offer-codes",
+      "title": "Create offer codes for subscriptions or in-app purchases",
+      "description": "Use when the user wants to create promo codes, offer codes, custom codes, or win-back offers for a subscription or in-app purchase.",
+      "args": [
+        { "name": "product_id", "description": "subscription or inAppPurchase resource id.", "required": true },
+        { "name": "kind", "description": "subscription | iap", "required": true }
+      ],
+      "steps": [
+        "1. Subscription: `subscriptionOfferCodes_createInstance` with `_body` = { data: { type: 'subscriptionOfferCodes', attributes: { name, offerEligibility: 'ACTIVE' | 'ALL', customerEligibilities: ['NEW', 'EXISTING', 'WIN_BACK'], offerMode: 'FREE_TRIAL' | 'PAY_AS_YOU_GO' | 'PAY_UP_FRONT', duration: 'ONE_MONTH' | ..., numberOfPeriods, targetSubscriptionPlanType: 'AUTO_RENEWABLE' }, relationships: { subscription: { data: { type: 'subscriptions', id: '{{product_id}}' } }, prices: { data: [{ type: 'subscriptionPrices', id }] } } } }.",
+        "2. IAP: `inAppPurchaseOfferCodes_createInstance` with attributes { name, customerEligibilities } and relationships { inAppPurchase, prices }.",
+        "3. Custom (one-time) codes: `subscriptionOfferCodeCustomCodes_createInstance` (relationships offerCode, attributes customCode, numberOfPeriods, expirationDate) or `inAppPurchaseOfferCodeCustomCodes_createInstance`.",
+        "4. Win-back offers for subscriptions: `winBackOffers_createInstance` (attributes referenceName, offerId, duration, offerMode, periodCount, customerEligibility..., relationships subscription + prices).",
+        "5. Verify: `subscriptions_offerCodes_getToManyRelated` (path id=subscription) or `inAppPurchases_offerCodes...`."
+      ],
+      "pitfalls": [
+        "Offer code `prices` must reference subscriptionPrices / inAppPurchasePrices already created for the product; create pricing first (see create-subscription / iap-localize-price-submit).",
+        "offerId and productId are immutable identifiers."
+      ]
+    },
+    {
+      "id": "reply-to-reviews",
+      "title": "Read and reply to customer reviews",
+      "description": "Use when the user wants to list, fetch, read, analyze, or respond to App Store customer reviews / ratings.",
+      "args": [
+        { "name": "app_id", "description": "App resource id.", "required": true }
+      ],
+      "steps": [
+        "1. List: `apps_customerReviews_getToManyRelated` with path id={{app_id}}, query `sort`=-createdDate, `limit`=50, `filter[territory]` (optional ISO code), `filter[rating]` (optional), `fields[customerReviews]=rating,title,body,createdDate,territory`. Optional include=response to see existing replies.",
+        "2. Reply: `customerReviewResponses_createInstance` with `_body` = { data: { type: 'customerReviewResponses', attributes: { responseBody }, relationships: { review: { data: { type: 'customerReviews', id: reviewId } } } } }.",
+        "3. Replace a reply: `customerReviewResponses_deleteInstance` then create again (one response per review). Check state via `customerReviews_response_getToOneRelated` - PUBLISHED appears on the store."
+      ],
+      "pitfalls": [
+        "Publishing is asynchronous; the response may stay PENDING for a while.",
+        "Reviews older than one year cannot be responded to."
+      ]
+    },
+    {
+      "id": "download-reports",
+      "title": "Download sales and finance reports",
+      "description": "Use when the user wants sales reports, finance reports, revenue, earnings, downloads, or payment reports.",
+      "args": [],
+      "steps": [
+        "1. Sales: `salesReports_getCollection` with query `filter[frequency]`=DAILY | WEEKLY | MONTHLY | YEARLY, `filter[reportSubType]`=SUMMARY | DETAILED, `filter[reportType]`=SALES, `filter[vendorNumber]`=<vendor number from Payments and Financial Reports>, `filter[reportDate]`=YYYY-MM-DD (for DAILY) or YYYY-MM (MONTHLY) - call get_tool_details for the exact date formats. Returns data.attributes.url (a download link).",
+        "2. Finance: `financeReports_getCollection` with `filter[regionCode]` (e.g. US, CN, or ZZ for rest of world), `filter[reportType]`=FINANCIAL, `filter[vendorNumber]`, and the date filter per get_tool_details. Also returns a url.",
+        "3. Download the URL with a client-side HTTP request (this MCP returns the link; the file is not JSON)."
+      ],
+      "pitfalls": [
+        "Report dates use the report's own frequency granularity; DAILY takes a full date, MONTHLY takes YYYY-MM, YEARLY takes YYYY.",
+        "The vendorNumber is not the app id - find it in App Store Connect > Payments and Financial Reports."
+      ]
+    },
+    {
+      "id": "signing-cert-device-profile",
+      "title": "Create signing certificate, register device, and provisioning profile",
+      "description": "Use when the user wants to create a certificate, register a test device (UDID), or create a provisioning profile for development/ad-hoc/App Store distribution.",
+      "args": [
+        { "name": "profile_type", "description": "IOS_APP development | IOS_APP_STORE | IOS_AD_HOC | MAC_APP_STORE | TVOS_APP ... (full list in get_tool_details profiles_createInstance).", "required": false }
+      ],
+      "steps": [
+        "1. Certificate: generate a CSR locally (openssl req -new -keyform PEM -keyout key.pem -out csr.pem -subj '/CN=Name/O=Org'), then `certificates_createInstance` with `_body` = { data: { type: 'certificates', attributes: { certificateType: 'IOS_DEVELOPMENT' | 'IOS_DISTRIBUTION' | 'DEVELOPMENT' | 'DISTRIBUTION' | 'MAC_APP_DISTRIBUTION' ..., csrContent }, relationships: {} } }. The response contains certificateContent once - download and store it.",
+        "2. Device: `devices_createInstance` with attributes { name, platform: IOS | MAC_OS | TV_OS ..., udid }. List with `devices_getCollection`.",
+        "3. Profile: `profiles_createInstance` with `_body` = { data: { type: 'profiles', attributes: { name, profileType }, relationships: { bundleId: { data: { type: 'bundleIds', id } }, certificates: { data: [{ type: 'certificates', id }] }, devices: { data: [{ type: 'devices', id }] } } } }. devices is omitted for App Store profiles. Response includes profileContent (base64 .mobileprovision).",
+        "4. Inspect/download existing: `profiles_getCollection` (filter[name], filter[profileType]) and `profiles_getInstance`."
+      ],
+      "pitfalls": [
+        "certificateContent and profileContent are returned only in the create/get responses; save them immediately.",
+        "Apple limits certificates per type; delete expired ones with certificates_deleteInstance first.",
+        "Bundle ids are registered with `bundleIds_createInstance` (attributes name, platform, identifier) if missing."
+      ]
+    },
+    {
+      "id": "invite-team-member",
+      "title": "Invite users and manage App Store Connect team access",
+      "description": "Use when the user wants to invite, add, or remove team members, change user roles, or control which apps a user can see.",
+      "args": [],
+      "steps": [
+        "1. List: `users_getCollection` with fields[users]=username,firstName,lastName,roles,allAppsVisible; pending invites via `userInvitations_getCollection`.",
+        "2. Invite: `userInvitations_createInstance` with `_body` = { data: { type: 'userInvitations', attributes: { email, firstName, lastName, roles: ['ADMIN' | 'FINANCE' | 'ACCOUNT_HOLDER' | 'SALES' | 'MARKETING' | 'APP_MANAGER' | 'DEVELOPER' | 'ACCESS_TO_REPORTS' | 'CUSTOMER_SUPPORT' | 'CREATE_APPS'], allAppsVisible: false }, relationships: { visibleApps: { data: [{ type: 'apps', id }] } } } }.",
+        "3. Change visible apps for an existing user: `users_visibleApps_replaceToManyRelationship` with path id=userId and `_body` = { data: [{ type: 'apps', id }, ...] }. Roles: `users_updateInstance` attributes.roles.",
+        "4. Remove: `users_deleteInstance` or `userInvitations_deleteInstance`."
+      ],
+      "pitfalls": [
+        "ACCOUNT_HOLDER cannot be invited via API; the last ADMIN cannot be removed.",
+        "allAppsVisible=true ignores visibleApps."
+      ]
+    },
+    {
+      "id": "age-rating-and-categories",
+      "title": "Set age rating, app categories, and app info",
+      "description": "Use when the user wants to set or change the age rating declaration, age rating override, primary/secondary categories, or app info localizations (subtitle, privacy policy URL, categories).",
+      "args": [
+        { "name": "app_id", "description": "App resource id.", "required": true }
+      ],
+      "steps": [
+        "1. App info: `apps_appInfos_getToManyRelated` with path id={{app_id}}; record `appInfoId` and its appInfoLocalizations.",
+        "2. Age rating: `appInfos_ageRatingDeclaration_getToOneRelated` with path id=appInfoId, then `ageRatingDeclarations_updateInstance` with path id=<declaration id> and attributes (advertising, alcoholTobaccoOrDrugUseOrReferences, contests, gambling, gunsOrOtherWeapons, kidsAgeBand, lootBox, medicalOrTreatmentInformation, messagingAndChat, parentalControls, profanityOrCrudeHumor, sexualContentGraphicAndNudity, sexualContentOrNudity, horrorOrFearThemes, matureOrSuggestiveThemes, unrestrictedWebAccess, userGeneratedContent, violenceCartoonOrFantasy, violenceRealistic, violenceRealisticProlongedGraphicOrSadistic, ageRatingOverride, koreaAgeRatingOverride).",
+        "3. Categories: `appCategories_getCollection` to find ids, then `appInfos_updateInstance` with path id=appInfoId and relationships { primaryCategory, primarySubcategoryOne, primarySubcategoryTwo, secondaryCategory, ... } each as { data: { type: 'appCategories', id } }.",
+        "4. Subtitle / privacy policy URL / name per locale: `appInfoLocalizations_createInstance` or `appInfoLocalizations_updateInstance` (attributes name, subtitle, privacyPolicyUrl, privacyChoicesUrl)."
+      ],
+      "pitfalls": [
+        "Categories must be leaf categories (no children) and second category must differ from the first.",
+        "Age rating answers are required before the first submission of any version."
+      ]
+    },
+    {
+      "id": "set-up-webhooks",
+      "title": "Set up App Store Connect webhooks (notifications)",
+      "description": "Use when the user wants to create, test, or list App Store Connect server notifications / webhooks and their deliveries.",
+      "args": [
+        { "name": "app_id", "description": "App resource id (or omit for all apps if the key allows).", "required": false }
+      ],
+      "steps": [
+        "1. List: `apps_webhooks_getToManyRelated` with path id={{app_id}} (use `webhooks_getInstance` only when you already have a webhook id).",
+        "2. Create: `webhooks_createInstance` with `_body` = { data: { type: 'webhooks', attributes: { name, url: 'https://...', enabled: true, eventTypes: ['APP_STORE_REVIEW_REQUESTED', 'TESTFLIGHT_BETA_TESTER_CONFIRMATION', ...] }, relationships: { app: { data: { type: 'apps', id: '{{app_id}}' } } } } }. Call get_tool_details for the full eventType enum.",
+        "3. Test: `webhookPings_createInstance` with relationships.webhook, then `webhooks_deliveries_getToManyRelated` (path id=webhookId) to inspect deliveryState SUCCEEDED | FAILED | PENDING and response.",
+        "4. Rotate secret: `webhooks_updateInstance` attributes.secret; verify signature header on your endpoint."
+      ],
+      "pitfalls": [
+        "Endpoint must be HTTPS with a valid certificate and respond within 20 seconds.",
+        "A webhook can be attached to one app; create one per app for app-scoped events."
+      ]
+    }
+  ]
+}
