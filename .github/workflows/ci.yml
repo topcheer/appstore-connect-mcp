@@ -25,6 +25,12 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      - name: Build skills (validates every recipe op name against the catalog)
+        run: npm run build:skills
+
+      - name: Committed artifacts are in sync (skills/, rust/recipes.json)
+        run: git diff --exit-code -- skills rust/recipes.json
+
       - name: Build
         run: npm run build
 

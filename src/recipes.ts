@@ -60,7 +60,9 @@ export function renderRecipe(recipe: Recipe, args: Record<string, string>): stri
   lines.push(
     "Every operation below is called through `call_api` with `name` = the operation name. " +
       "Call `get_tool_details(name)` before the first POST/PATCH of each operation to get the exact " +
-      "body schema and attribute enums. Responses are JSON:API: ids come from `data.id` / `data[].id`."
+      "body schema and attribute enums. Responses are JSON:API: ids come from `data.id` / `data[].id`. " +
+      "Operation names and body fields are verified against the API catalog; the step order follows Apple's " +
+      "documented workflows - if a step fails with 403/409, re-read the error and adjust rather than retrying blindly."
   );
   lines.push("");
   for (const step of recipe.steps) lines.push(sub(step));

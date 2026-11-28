@@ -19,7 +19,7 @@ Every operation below is called through the MCP tool `call_api` with `name` = th
 1. App info: `apps_appInfos_getToManyRelated` with path id=<app_id>; record `appInfoId` and its appInfoLocalizations.
 2. Age rating: `appInfos_ageRatingDeclaration_getToOneRelated` with path id=appInfoId, then `ageRatingDeclarations_updateInstance` with path id=<declaration id> and attributes (advertising, alcoholTobaccoOrDrugUseOrReferences, contests, gambling, gunsOrOtherWeapons, kidsAgeBand, lootBox, medicalOrTreatmentInformation, messagingAndChat, parentalControls, profanityOrCrudeHumor, sexualContentGraphicAndNudity, sexualContentOrNudity, horrorOrFearThemes, matureOrSuggestiveThemes, unrestrictedWebAccess, userGeneratedContent, violenceCartoonOrFantasy, violenceRealistic, violenceRealisticProlongedGraphicOrSadistic, ageRatingOverride, koreaAgeRatingOverride).
 3. Categories: `appCategories_getCollection` to find ids, then `appInfos_updateInstance` with path id=appInfoId and relationships { primaryCategory, primarySubcategoryOne, primarySubcategoryTwo, secondaryCategory, ... } each as { data: { type: 'appCategories', id } }.
-4. Subtitle / privacy policy URL / name per locale: `appInfoLocalizations_createInstance` or `appInfoLocalizations_updateInstance` (attributes name, subtitle, privacyPolicyUrl, privacyChoicesUrl).
+4. Subtitle / privacy policy URL / name per locale: `appInfoLocalizations_createInstance` (attributes locale, name, subtitle, privacyPolicyUrl, privacyChoicesUrl, privacyPolicyText; relationships.appInfo) or `appInfoLocalizations_updateInstance`.
 
 ## Pitfalls
 

@@ -21,7 +21,7 @@ Every operation below is called through the MCP tool `call_api` with `name` = th
 3. Reserve the image: `appScreenshots_createInstance` with `_body` = { data: { type: 'appScreenshots', attributes: { fileName, fileSize }, relationships: { appScreenshotSet: { data: { type: 'appScreenshotSets', id: setId } } } } }. The response has `uploadOperations` (method, url, length, offset, requestHeaders) - upload the bytes to those URLs (this MCP cannot transfer binary; do it with curl/HTTP from the client) and compute the checksum.
 4. Commit: `appScreenshots_updateInstance` with path id=<screenshot id> and `_body` = { data: { type: 'appScreenshots', id, attributes: { uploaded: true, sourceFileChecksum } } }. Poll `appScreenshots_getInstance` until assetDeliveryState.state is COMPLETE.
 5. Reorder: `appScreenshotSets_appScreenshots_replaceToManyRelationship` with path id=setId and `_body` = { data: [{ type: 'appScreenshots', id }, ...] } in the desired order. Delete with `appScreenshots_deleteInstance`.
-6. Videos: same flow with appPreviewSets / appPreviews (appPreviewSets_createInstance with previewType, appPreviews_createInstance with video).
+6. Videos: same flow with appPreviewSets / appPreviews - `appPreviewSets_createInstance` (attributes previewType), `appPreviews_createInstance` (attributes fileName, fileSize, mimeType, previewFrameTimeCode; relationships.appPreviewSet).
 
 ## Pitfalls
 

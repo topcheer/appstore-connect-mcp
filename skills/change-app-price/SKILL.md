@@ -19,7 +19,7 @@ Every operation below is called through the MCP tool `call_api` with `name` = th
 1. Current schedule: `apps_appPriceSchedule_getToOneRelated` with path id=<app_id> and include=manualPrices,baseTerritory.
 2. Choose base territory (e.g. USA) via `territories_getCollection`; territory ids are ISO codes.
 3. Choose the price point: `apps_appPricePoints_getToManyRelated` with path id=<app_id> and `filter[territory]`=USA; pick customerPrice, record `pricePointId`.
-4. Create a new schedule (this is how price changes are applied): `appPriceSchedules_createInstance` with `_body` = { data: { type: 'appPriceSchedules', relationships: { app: { data: { type: 'apps', id: '<app_id>' } }, baseTerritory: { data: { type: 'territories', id: 'USA' } }, manualPrices: { data: [{ type: 'appPricePoints', id: pricePointId }] } } } }. Optional attributes.startDate schedules the change.
+4. Create a new schedule (this is how price changes are applied): `appPriceSchedules_createInstance` with `_body` = { data: { type: 'appPriceSchedules', relationships: { app: { data: { type: 'apps', id: '<app_id>' } }, baseTerritory: { data: { type: 'territories', id: 'USA' } }, manualPrices: { data: [{ type: 'appPrices', id: pricePointId }] } } } }. Optional attributes.startDate schedules the change. (The spec names the relationship type `appPrices` while the ids come from appPricePoints; if Apple rejects the type, retry with `appPricePoints`.)
 5. Verify: `appPriceSchedules_manualPrices_getToManyRelated` and `appPriceSchedules_automaticPrices_getToManyRelated` (other territories follow automatically).
 
 ## Pitfalls

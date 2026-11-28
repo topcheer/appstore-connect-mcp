@@ -1,5 +1,5 @@
 {
-  "$comment": "Task recipes + search synonyms for the MCP server. Single source of truth: loaded by src/server.ts (TS), mirrored to rust/recipes.json for the Rust crate, and exported to skills/*/SKILL.md by scripts/build-skills.mjs. Every operation name referenced in `steps` MUST exist in tools.json - scripts/build-skills.mjs validates this and fails the build otherwise.",
+  "$comment": "Task recipes + search synonyms for the MCP server. Single source of truth: loaded by src/server.ts (TS), mirrored to rust/recipes.json for the Rust crate, and exported to skills/<id>/SKILL.md by scripts/build-skills.mjs. VERIFICATION STATUS: every operation name and the request-body fields quoted here are checked against tools.json (scripts/build-skills.mjs fails the build on unknown names); the step ORDER and state rules follow Apple's documented API behaviour and have NOT been executed against a live App Store Connect account - confirm against Apple's docs when a step returns 409/403.",
 
   "synonyms": {
     "testflight": ["beta", "betaTester", "betaGroup", "betaBuild"],
@@ -230,14 +230,14 @@
       "steps": [
         "1. Find or create the group: `betaGroups_getCollection` with `filter[app]`={{app_id}}, `filter[name]`=<group name>. If missing, `betaGroups_createInstance` with `_body` = { data: { type: 'betaGroups', attributes: { name, isInternalGroup: !external, hasAccessToAllBuilds: false, publicLinkEnabled: false, feedbackEnabled: true }, relationships: { app: { data: { type: 'apps', id: '{{app_id}}' } } } } }. Record `groupId`.",
         "2. Attach the build: `betaGroups_builds_createToManyRelationship` with path id=groupId and `_body` = { data: [{ type: 'builds', id: '{{build_id}}' }] }.",
-        "3. External only - export compliance: ensure the build declares encryption. `builds_appEncryptionDeclaration_getToOneRelated` (path id={{build_id}}); if missing, `appEncryptionDeclarations_createInstance` with attributes { usesExemptEncryption: false } and relationship app, then `builds_appEncryptionDeclaration_updateToOneRelationship` with `_body` = { data: { type: 'appEncryptionDeclarations', id } }.",
+        "3. External only - export compliance: `builds_appEncryptionDeclaration_getToOneRelated` (path id={{build_id}}) to see if the build already has a declaration; otherwise `apps_appEncryptionDeclarations_getToManyRelated` (path id={{app_id}}) to find a reusable one. Create with `appEncryptionDeclarations_createInstance`: attributes { containsProprietaryCryptography: true, containsThirdPartyCryptography: false, availableOnFrenchStore: true, appDescription }, relationships.app. Then attach it to the build: `builds_appEncryptionDeclaration_updateToOneRelationship` with `_body` = { data: { type: 'appEncryptionDeclarations', id } }.",
         "4. External only - beta review: `betaAppReviewSubmissions_createInstance` with `_body` = { data: { type: 'betaAppReviewSubmissions', relationships: { build: { data: { type: 'builds', id: '{{build_id}}' } } } } }. Poll `builds_betaAppReviewSubmission_getToOneRelated` until attributes.betaReviewState is APPROVED (usually minutes to a day). Internal groups skip this.",
-        "5. Add testers: see manage-beta-testers. Enable a public link with `betaGroups_updateInstance` attributes { publicLinkEnabled: true, publicLinkLimitEnabled, publicLinkLimit, publicLink }.",
+        "5. Add testers: see manage-beta-testers. Enable a public link with `betaGroups_updateInstance` attributes { publicLinkEnabled: true, publicLinkLimitEnabled, publicLinkLimit }; the link itself (attributes.publicLink) is read-only and appears on the group after enabling.",
         "6. Verify: `betaGroups_builds_getToManyRelated` and `betaGroups_getInstance`."
       ],
       "pitfalls": [
         "Internal groups: testers must already be App Store Connect users with access to the app. External groups: testers can be any email, but the build must pass beta review once per version.",
-        "Beta review is per build version; a new build number generally needs re-review unless it only changes metadata.",
+        "Beta review is required for the first build of each version; later builds of the same version usually do not need another review.",
         "Export compliance must be resolved before external distribution; missing declarations block review."
       ]
     },
@@ -293,7 +293,7 @@
         "3. Reserve the image: `appScreenshots_createInstance` with `_body` = { data: { type: 'appScreenshots', attributes: { fileName, fileSize }, relationships: { appScreenshotSet: { data: { type: 'appScreenshotSets', id: setId } } } } }. The response has `uploadOperations` (method, url, length, offset, requestHeaders) - upload the bytes to those URLs (this MCP cannot transfer binary; do it with curl/HTTP from the client) and compute the checksum.",
         "4. Commit: `appScreenshots_updateInstance` with path id=<screenshot id> and `_body` = { data: { type: 'appScreenshots', id, attributes: { uploaded: true, sourceFileChecksum } } }. Poll `appScreenshots_getInstance` until assetDeliveryState.state is COMPLETE.",
         "5. Reorder: `appScreenshotSets_appScreenshots_replaceToManyRelationship` with path id=setId and `_body` = { data: [{ type: 'appScreenshots', id }, ...] } in the desired order. Delete with `appScreenshots_deleteInstance`.",
-        "6. Videos: same flow with appPreviewSets / appPreviews (appPreviewSets_createInstance with previewType, appPreviews_createInstance with video)."
+        "6. Videos: same flow with appPreviewSets / appPreviews - `appPreviewSets_createInstance` (attributes previewType), `appPreviews_createInstance` (attributes fileName, fileSize, mimeType, previewFrameTimeCode; relationships.appPreviewSet)."
       ],
       "pitfalls": [
         "A set needs 1-10 screenshots (some display types require at least 3) before the version can be submitted.",
@@ -334,11 +334,11 @@
       "steps": [
         "1. Inspect: `inAppPurchases_getInstance` with path id={{iap_id}}, include=inAppPurchaseLocalizations,inAppPurchasePriceSchedule; report name, productId, type, state.",
         "2. Localization: `inAppPurchaseLocalizations_createInstance` with `_body` = { data: { type: 'inAppPurchaseLocalizations', attributes: { name, locale, description }, relationships: { inAppPurchaseV2: { data: { type: 'inAppPurchases', id: '{{iap_id}}' } } } } }. Update with `inAppPurchaseLocalizations_updateInstance`.",
-        "3. Price: `inAppPurchasePriceSchedules_createInstance` with relationships { inAppPurchaseV2, baseTerritory (e.g. USA), manualPrices: [{ type: 'inAppPurchasePricePoints', id }] }. Price point ids come from an existing schedule (`inAppPurchasePriceSchedules_manualPrices_getToManyRelated`) or its equalized prices (`inAppPurchasePricePoints_equalizations_getToManyRelated`); call get_tool_details for the exact body shape.",
+        "3. Price: `inAppPurchasePriceSchedules_createInstance` with relationships { inAppPurchase: { data: { type: 'inAppPurchases', id: '{{iap_id}}' } }, baseTerritory (e.g. USA), manualPrices: { data: [{ type: 'inAppPurchasePrices', id }] } }. Note this endpoint uses the relationship name `inAppPurchase` (not `inAppPurchaseV2`) and prices are `inAppPurchasePrices`; ids come from an existing schedule (`inAppPurchasePriceSchedules_manualPrices_getToManyRelated`) or its equalized prices (`inAppPurchasePricePoints_equalizations_getToManyRelated`).",
         "4. Submit: `inAppPurchaseSubmissions_createInstance` with relationships.inAppPurchaseV2. Then re-read `inAppPurchases_getInstance` and watch attributes.state until APPROVED (or REJECTED)."
       ],
       "pitfalls": [
-        "Relationship name is `inAppPurchaseV2` (not `inAppPurchase`) in all IAP v2 bodies.",
+        "Relationship names are inconsistent on purpose by Apple: localizations and submissions use `inAppPurchaseV2`; the price schedule uses `inAppPurchase`. Copy them exactly from get_tool_details.",
         "IAP products are created in App Store Connect UI; the API cannot create them.",
         "Review screenshot per localization is required before submission for some IAP types."
       ]
@@ -354,7 +354,7 @@
         "1. Current schedule: `apps_appPriceSchedule_getToOneRelated` with path id={{app_id}} and include=manualPrices,baseTerritory.",
         "2. Choose base territory (e.g. USA) via `territories_getCollection`; territory ids are ISO codes.",
         "3. Choose the price point: `apps_appPricePoints_getToManyRelated` with path id={{app_id}} and `filter[territory]`=USA; pick customerPrice, record `pricePointId`.",
-        "4. Create a new schedule (this is how price changes are applied): `appPriceSchedules_createInstance` with `_body` = { data: { type: 'appPriceSchedules', relationships: { app: { data: { type: 'apps', id: '{{app_id}}' } }, baseTerritory: { data: { type: 'territories', id: 'USA' } }, manualPrices: { data: [{ type: 'appPricePoints', id: pricePointId }] } } } }. Optional attributes.startDate schedules the change.",
+        "4. Create a new schedule (this is how price changes are applied): `appPriceSchedules_createInstance` with `_body` = { data: { type: 'appPriceSchedules', relationships: { app: { data: { type: 'apps', id: '{{app_id}}' } }, baseTerritory: { data: { type: 'territories', id: 'USA' } }, manualPrices: { data: [{ type: 'appPrices', id: pricePointId }] } } } }. Optional attributes.startDate schedules the change. (The spec names the relationship type `appPrices` while the ids come from appPricePoints; if Apple rejects the type, retry with `appPricePoints`.)",
         "5. Verify: `appPriceSchedules_manualPrices_getToManyRelated` and `appPriceSchedules_automaticPrices_getToManyRelated` (other territories follow automatically)."
       ],
       "pitfalls": [
@@ -373,7 +373,7 @@
       "steps": [
         "1. Subscription: `subscriptionOfferCodes_createInstance` with `_body` = { data: { type: 'subscriptionOfferCodes', attributes: { name, offerEligibility: 'ACTIVE' | 'ALL', customerEligibilities: ['NEW', 'EXISTING', 'WIN_BACK'], offerMode: 'FREE_TRIAL' | 'PAY_AS_YOU_GO' | 'PAY_UP_FRONT', duration: 'ONE_MONTH' | ..., numberOfPeriods, targetSubscriptionPlanType: 'AUTO_RENEWABLE' }, relationships: { subscription: { data: { type: 'subscriptions', id: '{{product_id}}' } }, prices: { data: [{ type: 'subscriptionPrices', id }] } } } }.",
         "2. IAP: `inAppPurchaseOfferCodes_createInstance` with attributes { name, customerEligibilities } and relationships { inAppPurchase, prices }.",
-        "3. Custom (one-time) codes: `subscriptionOfferCodeCustomCodes_createInstance` (relationships offerCode, attributes customCode, numberOfPeriods, expirationDate) or `inAppPurchaseOfferCodeCustomCodes_createInstance`.",
+        "3. Custom (one-time) codes: `subscriptionOfferCodeCustomCodes_createInstance` (relationships offerCode, attributes customCode or numberOfCodes, expirationDate) or `inAppPurchaseOfferCodeCustomCodes_createInstance`.",
         "4. Win-back offers for subscriptions: `winBackOffers_createInstance` (attributes referenceName, offerId, duration, offerMode, periodCount, customerEligibility..., relationships subscription + prices).",
         "5. Verify: `subscriptions_offerCodes_getToManyRelated` (path id=subscription) or `inAppPurchases_offerCodes...`."
       ],
@@ -396,7 +396,7 @@
       ],
       "pitfalls": [
         "Publishing is asynchronous; the response may stay PENDING for a while.",
-        "Reviews older than one year cannot be responded to."
+        "Apple allows one response per review; to change it, delete and recreate."
       ]
     },
     {
@@ -419,10 +419,10 @@
       "title": "Create signing certificate, register device, and provisioning profile",
       "description": "Use when the user wants to create a certificate, register a test device (UDID), or create a provisioning profile for development/ad-hoc/App Store distribution.",
       "args": [
-        { "name": "profile_type", "description": "IOS_APP development | IOS_APP_STORE | IOS_AD_HOC | MAC_APP_STORE | TVOS_APP ... (full list in get_tool_details profiles_createInstance).", "required": false }
+        { "name": "profile_type", "description": "IOS_APP_DEVELOPMENT | IOS_APP_STORE | IOS_APP_ADHOC | MAC_APP_DEVELOPMENT | MAC_APP_STORE | MAC_APP_DISTRIBUTION ... (full enum in get_tool_details profiles_createInstance).", "required": false }
       ],
       "steps": [
-        "1. Certificate: generate a CSR locally (openssl req -new -keyform PEM -keyout key.pem -out csr.pem -subj '/CN=Name/O=Org'), then `certificates_createInstance` with `_body` = { data: { type: 'certificates', attributes: { certificateType: 'IOS_DEVELOPMENT' | 'IOS_DISTRIBUTION' | 'DEVELOPMENT' | 'DISTRIBUTION' | 'MAC_APP_DISTRIBUTION' ..., csrContent }, relationships: {} } }. The response contains certificateContent once - download and store it.",
+        "1. Certificate: generate a CSR locally (openssl req -new -keyform PEM -keyout key.pem -out csr.pem -subj '/CN=Name/O=Org'), then `certificates_createInstance` with `_body` = { data: { type: 'certificates', attributes: { certificateType: 'IOS_DEVELOPMENT' | 'IOS_DISTRIBUTION' | 'MAC_APP_DEVELOPMENT' | 'MAC_APP_DISTRIBUTION' | ..., csrContent }, relationships: {} } }. The response contains certificateContent once - download and store it.",
         "2. Device: `devices_createInstance` with attributes { name, platform: IOS | MAC_OS | TV_OS ..., udid }. List with `devices_getCollection`.",
         "3. Profile: `profiles_createInstance` with `_body` = { data: { type: 'profiles', attributes: { name, profileType }, relationships: { bundleId: { data: { type: 'bundleIds', id } }, certificates: { data: [{ type: 'certificates', id }] }, devices: { data: [{ type: 'devices', id }] } } } }. devices is omitted for App Store profiles. Response includes profileContent (base64 .mobileprovision).",
         "4. Inspect/download existing: `profiles_getCollection` (filter[name], filter[profileType]) and `profiles_getInstance`."
@@ -460,7 +460,7 @@
         "1. App info: `apps_appInfos_getToManyRelated` with path id={{app_id}}; record `appInfoId` and its appInfoLocalizations.",
         "2. Age rating: `appInfos_ageRatingDeclaration_getToOneRelated` with path id=appInfoId, then `ageRatingDeclarations_updateInstance` with path id=<declaration id> and attributes (advertising, alcoholTobaccoOrDrugUseOrReferences, contests, gambling, gunsOrOtherWeapons, kidsAgeBand, lootBox, medicalOrTreatmentInformation, messagingAndChat, parentalControls, profanityOrCrudeHumor, sexualContentGraphicAndNudity, sexualContentOrNudity, horrorOrFearThemes, matureOrSuggestiveThemes, unrestrictedWebAccess, userGeneratedContent, violenceCartoonOrFantasy, violenceRealistic, violenceRealisticProlongedGraphicOrSadistic, ageRatingOverride, koreaAgeRatingOverride).",
         "3. Categories: `appCategories_getCollection` to find ids, then `appInfos_updateInstance` with path id=appInfoId and relationships { primaryCategory, primarySubcategoryOne, primarySubcategoryTwo, secondaryCategory, ... } each as { data: { type: 'appCategories', id } }.",
-        "4. Subtitle / privacy policy URL / name per locale: `appInfoLocalizations_createInstance` or `appInfoLocalizations_updateInstance` (attributes name, subtitle, privacyPolicyUrl, privacyChoicesUrl)."
+        "4. Subtitle / privacy policy URL / name per locale: `appInfoLocalizations_createInstance` (attributes locale, name, subtitle, privacyPolicyUrl, privacyChoicesUrl, privacyPolicyText; relationships.appInfo) or `appInfoLocalizations_updateInstance`."
       ],
       "pitfalls": [
         "Categories must be leaf categories (no children) and second category must differ from the first.",

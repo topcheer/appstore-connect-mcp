@@ -33,6 +33,8 @@ COPY rust/src ./src
 # The crate embeds the shared generated catalog via include_str!("../tools.json")
 # (must land flat in /build next to src/, matching the crate layout)
 COPY rust/tools.json ./tools.json
+# Same for the curated task recipes (knowledge.rs: include_str!("../recipes.json"))
+COPY rust/recipes.json ./recipes.json
 
 # ── Cross/native build ───────────────────────────────────────────
 # aws-lc-sys (via cmake) needs CC/CXX pointed at the cross toolchain,

@@ -12,11 +12,11 @@ Every operation below is called through the MCP tool `call_api` with `name` = th
 
 ## Inputs
 
-- `profile_type` (optional): IOS_APP development | IOS_APP_STORE | IOS_AD_HOC | MAC_APP_STORE | TVOS_APP ... (full list in get_tool_details profiles_createInstance).
+- `profile_type` (optional): IOS_APP_DEVELOPMENT | IOS_APP_STORE | IOS_APP_ADHOC | MAC_APP_DEVELOPMENT | MAC_APP_STORE | MAC_APP_DISTRIBUTION ... (full enum in get_tool_details profiles_createInstance).
 
 ## Steps
 
-1. Certificate: generate a CSR locally (openssl req -new -keyform PEM -keyout key.pem -out csr.pem -subj '/CN=Name/O=Org'), then `certificates_createInstance` with `_body` = { data: { type: 'certificates', attributes: { certificateType: 'IOS_DEVELOPMENT' | 'IOS_DISTRIBUTION' | 'DEVELOPMENT' | 'DISTRIBUTION' | 'MAC_APP_DISTRIBUTION' ..., csrContent }, relationships: {} } }. The response contains certificateContent once - download and store it.
+1. Certificate: generate a CSR locally (openssl req -new -keyform PEM -keyout key.pem -out csr.pem -subj '/CN=Name/O=Org'), then `certificates_createInstance` with `_body` = { data: { type: 'certificates', attributes: { certificateType: 'IOS_DEVELOPMENT' | 'IOS_DISTRIBUTION' | 'MAC_APP_DEVELOPMENT' | 'MAC_APP_DISTRIBUTION' | ..., csrContent }, relationships: {} } }. The response contains certificateContent once - download and store it.
 2. Device: `devices_createInstance` with attributes { name, platform: IOS | MAC_OS | TV_OS ..., udid }. List with `devices_getCollection`.
 3. Profile: `profiles_createInstance` with `_body` = { data: { type: 'profiles', attributes: { name, profileType }, relationships: { bundleId: { data: { type: 'bundleIds', id } }, certificates: { data: [{ type: 'certificates', id }] }, devices: { data: [{ type: 'devices', id }] } } } }. devices is omitted for App Store profiles. Response includes profileContent (base64 .mobileprovision).
 4. Inspect/download existing: `profiles_getCollection` (filter[name], filter[profileType]) and `profiles_getInstance`.

@@ -23,4 +23,4 @@ Every operation below is called through the MCP tool `call_api` with `name` = th
 ## Pitfalls
 
 - Publishing is asynchronous; the response may stay PENDING for a while.
-- Reviews older than one year cannot be responded to.
+- Apple allows one response per review; to change it, delete and recreate.

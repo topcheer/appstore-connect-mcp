@@ -18,11 +18,11 @@ Every operation below is called through the MCP tool `call_api` with `name` = th
 
 1. Inspect: `inAppPurchases_getInstance` with path id=<iap_id>, include=inAppPurchaseLocalizations,inAppPurchasePriceSchedule; report name, productId, type, state.
 2. Localization: `inAppPurchaseLocalizations_createInstance` with `_body` = { data: { type: 'inAppPurchaseLocalizations', attributes: { name, locale, description }, relationships: { inAppPurchaseV2: { data: { type: 'inAppPurchases', id: '<iap_id>' } } } } }. Update with `inAppPurchaseLocalizations_updateInstance`.
-3. Price: `inAppPurchasePriceSchedules_createInstance` with relationships { inAppPurchaseV2, baseTerritory (e.g. USA), manualPrices: [{ type: 'inAppPurchasePricePoints', id }] }. Price point ids come from an existing schedule (`inAppPurchasePriceSchedules_manualPrices_getToManyRelated`) or its equalized prices (`inAppPurchasePricePoints_equalizations_getToManyRelated`); call get_tool_details for the exact body shape.
+3. Price: `inAppPurchasePriceSchedules_createInstance` with relationships { inAppPurchase: { data: { type: 'inAppPurchases', id: '<iap_id>' } }, baseTerritory (e.g. USA), manualPrices: { data: [{ type: 'inAppPurchasePrices', id }] } }. Note this endpoint uses the relationship name `inAppPurchase` (not `inAppPurchaseV2`) and prices are `inAppPurchasePrices`; ids come from an existing schedule (`inAppPurchasePriceSchedules_manualPrices_getToManyRelated`) or its equalized prices (`inAppPurchasePricePoints_equalizations_getToManyRelated`).
 4. Submit: `inAppPurchaseSubmissions_createInstance` with relationships.inAppPurchaseV2. Then re-read `inAppPurchases_getInstance` and watch attributes.state until APPROVED (or REJECTED).
 
 ## Pitfalls
 
-- Relationship name is `inAppPurchaseV2` (not `inAppPurchase`) in all IAP v2 bodies.
+- Relationship names are inconsistent on purpose by Apple: localizations and submissions use `inAppPurchaseV2`; the price schedule uses `inAppPurchase`. Copy them exactly from get_tool_details.
 - IAP products are created in App Store Connect UI; the API cannot create them.
 - Review screenshot per localization is required before submission for some IAP types.

@@ -38,15 +38,16 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "npm run build:skills && tsc && node -e \"const fs=require('node:fs');for(const f of ['tools.json','recipes.json'])fs.copyFileSync('src/'+f,'dist/'+f)\"",
+    "build": "tsc && node -e \"const fs=require('node:fs');for(const f of ['tools.json','recipes.json'])fs.copyFileSync('src/'+f,'dist/'+f)\"",
     "build:skills": "node scripts/build-skills.mjs",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "start:http": "node dist/index.js --transport http",
     "start:stdio": "node dist/index.js --transport stdio",
     "generate": "python3 scripts/generate-tools.py && npm run build:skills",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build:skills && npm run build",
     "test": "npm run build && node --test test/",
+    "verify:live": "node scripts/verify-live.mjs",
     "lint": "eslint src/ --ext .ts",
     "typecheck": "tsc --noEmit"
   },

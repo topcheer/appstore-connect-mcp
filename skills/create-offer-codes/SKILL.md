@@ -19,7 +19,7 @@ Every operation below is called through the MCP tool `call_api` with `name` = th
 
 1. Subscription: `subscriptionOfferCodes_createInstance` with `_body` = { data: { type: 'subscriptionOfferCodes', attributes: { name, offerEligibility: 'ACTIVE' | 'ALL', customerEligibilities: ['NEW', 'EXISTING', 'WIN_BACK'], offerMode: 'FREE_TRIAL' | 'PAY_AS_YOU_GO' | 'PAY_UP_FRONT', duration: 'ONE_MONTH' | ..., numberOfPeriods, targetSubscriptionPlanType: 'AUTO_RENEWABLE' }, relationships: { subscription: { data: { type: 'subscriptions', id: '<product_id>' } }, prices: { data: [{ type: 'subscriptionPrices', id }] } } } }.
 2. IAP: `inAppPurchaseOfferCodes_createInstance` with attributes { name, customerEligibilities } and relationships { inAppPurchase, prices }.
-3. Custom (one-time) codes: `subscriptionOfferCodeCustomCodes_createInstance` (relationships offerCode, attributes customCode, numberOfPeriods, expirationDate) or `inAppPurchaseOfferCodeCustomCodes_createInstance`.
+3. Custom (one-time) codes: `subscriptionOfferCodeCustomCodes_createInstance` (relationships offerCode, attributes customCode or numberOfCodes, expirationDate) or `inAppPurchaseOfferCodeCustomCodes_createInstance`.
 4. Win-back offers for subscriptions: `winBackOffers_createInstance` (attributes referenceName, offerId, duration, offerMode, periodCount, customerEligibility..., relationships subscription + prices).
 5. Verify: `subscriptions_offerCodes_getToManyRelated` (path id=subscription) or `inAppPurchases_offerCodes...`.
 
